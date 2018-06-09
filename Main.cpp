@@ -24,27 +24,16 @@ void error_callback(int error, const char* description)
 {
 	fputs(description, stderr); // gibt string aus (in dem Fall auf Konsole)
 }
-	float angle = 0;
 	float anglex = 0;
 	float angley = 0;
 	float anglez = 0;
-
-	float angle0 = 0;
-	float angle1 = 0;
-	float angle2 = 0;
-	float angle3 = 0;
-
-	
+		
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	switch (key)
 	{
 	case GLFW_KEY_ESCAPE:
 		glfwSetWindowShouldClose(window, GL_TRUE);
-		break;
-
-	case GLFW_KEY_R:
-		angle += 5;
 		break;
 
 	case GLFW_KEY_X:
@@ -57,18 +46,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		anglez += 5;
 		break;
 
-	case GLFW_KEY_RIGHT:
-		angle0 += 5;
-		break;
-	case GLFW_KEY_LEFT:
-		angle1 += 5;
-		break;
-	case GLFW_KEY_UP:
-		angle2 += 5;
-		break;
-	case GLFW_KEY_DOWN:
-		angle3 += 5;
-		break;
 
 	default:
 		break;
@@ -143,11 +120,11 @@ int main(void)
 
 	// Open a window and create its OpenGL context
 	// glfwWindowHint vorher aufrufen, um erforderliche Resourcen festzulegen
-	GLFWwindow* window = glfwCreateWindow(1024, // Breite
-										  768,  // Hoehe
-										  "CG - Tutorial", // Ueberschrift
+	GLFWwindow* window = glfwCreateWindow(1300, // Breite
+										  1000,  // Hoehe
+										  "Connect four", // Ueberschrift
 										  NULL,  // windowed mode
-										  NULL); // shared windoe
+										  NULL); // shared window
 
 	if (!window)
 	{
@@ -189,7 +166,7 @@ int main(void)
 	std::vector<glm::vec2> uvs;
 	std::vector<glm::vec3> normals;
 
-	bool res = loadOBJ("teapot.obj", vertices, uvs, normals);
+	bool res = loadOBJ("ConnectFourBoard.obj", vertices, uvs, normals);
 	GLuint VertexArrayIDTeapot;
 	glGenVertexArrays(1, &VertexArrayIDTeapot); // id wird an ein in methode erstelltes vbo object zugewiesen
 	glBindVertexArray(VertexArrayIDTeapot); // id wird an Objekt gebunden
@@ -241,28 +218,18 @@ int main(void)
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 		
 		// Camera matrix
-		View = glm::lookAt(glm::vec3(0,0,-5), // Camera is at (0,0,-5), in World Space
+		View = glm::lookAt(glm::vec3(0,15,15), // Camera is at (0,0,-5), in World Space
 						   glm::vec3(0,0,0),  // and looks at the origin
 						   glm::vec3(0,1,0)); // Head is up (set to 0,-1,0 to look upside-down)
 		
 		// Model matrix : an identity matrix (model will be at the origin)
 		Model = glm::mat4(1.0f);
 
-
-		//Model = glm::rotate(Model, angle, glm::vec3(0, 0, 1));
-	
-		Model = glm::rotate(Model, 30.0f, glm::vec3(0, 1, 1));
-	
-		//Model = glm::rotate(Model, 45.0f, glm::vec3(1,1,1));
-
 		Model = glm::rotate(Model, anglex, glm::vec3(1, 0, 0));
 		Model = glm::rotate(Model, angley, glm::vec3(0, 1, 0));
 		Model = glm::rotate(Model, anglez, glm::vec3(0, 0, 1));
 
 		glm::mat4 Save = Model;
-		Model = glm::translate(Model, glm::vec3(1.5, 0, 0));
-
-		Model = glm::scale(Model, glm::vec3(1.0/1000, 1.0/1000, 1.0/1000));
 
 		sendMVP();
 
@@ -281,31 +248,12 @@ int main(void)
 		glDrawArrays(GL_TRIANGLES, 0, vertices.size());
 
 		Model = Save;
-		Model = glm::scale(Model, glm::vec3(0.5, 0.5, 0.5));
-
-		Model = glm::rotate(Model, angle0, glm::vec3(0, 1, 0));
-		Model = glm::rotate(Model, angle1, glm::vec3(0, 0, 1));
-
-		drawSeg(1.0);
-
-		Model = glm::translate(Model, glm::vec3(0, 1, 0));
-
-		Model = glm::rotate(Model, angle2, glm::vec3(0, 0, 1));
-
-		drawSeg(0.8);
-
-		Model = glm::translate(Model, glm::vec3(0, 0.8, 0));
-		Model = glm::rotate(Model, angle3, glm::vec3(0, 0, 1));
-
-		drawSeg(0.6);
+		Model = glm::scale(Model, glm::vec3(1, 1, 1));
+		
 		lightTransform = glm::translate(Model, glm::vec3(0, 0.6, 0));
 
 		Model = Save;
-		// Model = glm::translate(Model, glm::vec3(0, 0.6, 0));
-
-		Model = Save;
 		sendMVP();
-		drawSphere(10, 10);
 
 		drawCS();
 
