@@ -203,8 +203,6 @@ int main(void)
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 
-	glm::mat4 lightTransform(1.0f);
-
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -233,25 +231,17 @@ int main(void)
 
 		sendMVP();
 
-		glm::vec4 lightPos = lightTransform * glm::vec4(0, 0, 0, 1);
+		glm::vec3 lightPos = glm::vec3(3, 4, -4);
 
-		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), 
-			lightPos.x, lightPos.y, lightPos.z);
+		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), lightPos.x, lightPos.y, lightPos.z);
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, Texture);
 		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0); // 1 integer wert
 		
-		//drawCube();
-
 		glBindVertexArray(VertexArrayIDTeapot);
 		glDrawArrays(GL_TRIANGLES, 0, vertices.size());
-
-		Model = Save;
-		Model = glm::scale(Model, glm::vec3(1, 1, 1));
-		
-		lightTransform = glm::translate(Model, glm::vec3(0, 0.6, 0));
-
+			
 		Model = Save;
 		sendMVP();
 
