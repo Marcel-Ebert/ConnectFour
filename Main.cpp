@@ -106,6 +106,21 @@ void drawSeg(GLfloat height)
 
 }
 
+GLuint VertexArrayIDBoard;
+GLuint VertexArrayIDChip;
+
+void drawChip(glm::vec3 position, GLsizei arraysize) {
+	glm::mat4 Save = Model;
+
+	Model = glm::translate(Model, position);
+	sendMVP();
+
+	glBindVertexArray(VertexArrayIDChip);
+	glDrawArrays(GL_TRIANGLES, 0, arraysize);
+
+	Model = Save;
+}
+
 int main(void)
 {
 	// Initialise GLFW
@@ -167,9 +182,9 @@ int main(void)
 	std::vector<glm::vec3> normals;
 
 	bool res = loadOBJ("ConnectFourBoard.obj", vertices, uvs, normals);
-	GLuint VertexArrayIDTeapot;
-	glGenVertexArrays(1, &VertexArrayIDTeapot); // id wird an ein in methode erstelltes vbo object zugewiesen
-	glBindVertexArray(VertexArrayIDTeapot); // id wird an Objekt gebunden
+	
+	glGenVertexArrays(1, &VertexArrayIDBoard); // id wird an ein in methode erstelltes vbo object zugewiesen
+	glBindVertexArray(VertexArrayIDBoard); // id wird an Objekt gebunden
 
 	GLuint vertexBuffer;
 	glGenBuffers(1, &vertexBuffer); // vbo bekommt buffer zugewiesen
@@ -198,6 +213,42 @@ int main(void)
 	glGenBuffers(1, &textureBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, uvs.size() * sizeof(glm::vec2), &uvs[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+
+	std::vector<glm::vec3> chipVertices;
+	std::vector<glm::vec2> chipUvs;
+	std::vector<glm::vec3> chipNormals;
+	res = loadOBJ("Chip.obj", chipVertices, chipUvs, chipNormals);
+	glGenVertexArrays(1, &VertexArrayIDChip); // id wird an ein in methode erstelltes vbo object zugewiesen
+	glBindVertexArray(VertexArrayIDChip); // id wird an Objekt gebunden
+
+	glGenBuffers(1, &vertexBuffer); // vbo bekommt buffer zugewiesen
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
+	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+		&chipVertices[0],
+		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+
+	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
+	glVertexAttribPointer(0, // Position in shader
+		3, // Datenformat (3 Werte)
+		GL_FLOAT, // Typ
+		GL_FALSE, // normalisiert?
+		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
+		(void*)0); // kann beliebigen Datentyp annehmen
+
+	glGenBuffers(1, &normalBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, chipNormals.size() * sizeof(glm::vec3), &chipNormals[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glGenBuffers(1, &textureBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
+	glBufferData(GL_ARRAY_BUFFER, chipUvs.size() * sizeof(glm::vec2), &chipUvs[0], GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -239,13 +290,21 @@ int main(void)
 		glBindTexture(GL_TEXTURE_2D, Texture);
 		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0); // 1 integer wert
 		
-		glBindVertexArray(VertexArrayIDTeapot);
+		glBindVertexArray(VertexArrayIDBoard);
 		glDrawArrays(GL_TRIANGLES, 0, vertices.size());
-			
-		Model = Save;
-		sendMVP();
+		
+		
+		drawChip(glm::vec3(1, 0, 1), chipVertices.size());
 
+		drawChip(glm::vec3(3, 0, 3), chipVertices.size());
+
+		drawChip(glm::vec3(5, 0, 5), chipVertices.size());
+
+
+
+		Model = Save;
 		drawCS();
+
 
 		// Swap buffers
 		glfwSwapBuffers(window);
