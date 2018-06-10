@@ -152,6 +152,35 @@ void drawBoard(GLsizei arraysize) {
 	glDrawArrays(GL_TRIANGLES, 0, arraysize);
 }
 
+int boardSize = 0;
+int **boardArray;
+
+void createArrayForBoard() {
+	boardArray = new int*[boardSize];
+	for (int i = 0; i < boardSize; ++i) {
+		boardArray[i] = new int[boardSize];
+	}
+}
+
+void drawChipsInBoardArray(GLsizei chipVerticesSize) {
+	for (int i = 0; i < boardSize; i++) {
+		for (int j = 0; j < boardSize; j++) {
+			if (boardArray[i][j] == 1) {
+				drawChip(glm::vec3(1 + i * 2, 0, 1 + j * 2), true, chipVerticesSize);
+			} else if (boardArray[i][j] == 2) {
+				drawChip(glm::vec3(1 + i * 2, 0, 1 + j * 2), false, chipVerticesSize);
+			}
+		}
+	}
+}
+
+void deleteArrayForBoard() {
+	for (int i = 0; i < boardSize; ++i) {
+		delete[] boardArray[i];
+	}
+	delete[] boardArray;
+}
+
 int main(void)
 {
 	// Initialise GLFW
@@ -287,6 +316,11 @@ int main(void)
 	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
+	createArrayForBoard();
+
+	boardArray[0][0] = 1;
+	boardArray[0][1] = 2;
+	boardArray[0][2] = 0;
 
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
@@ -321,17 +355,9 @@ int main(void)
 
 		
 		drawBoard(vertices.size());
+
+		drawChipsInBoardArray(chipVertices.size());
 		
-		drawChip(glm::vec3(1, 0, 1), true, chipVertices.size());
-
-		drawChip(glm::vec3(3, 0, 3), true, chipVertices.size());
-
-		drawChip(glm::vec3(5, 0, 5), false, chipVertices.size());
-
-
-		drawChip(glm::vec3(5, 0, 3), false, chipVertices.size());
-
-
 
 		Model = Save;
 		drawCS();
@@ -343,6 +369,8 @@ int main(void)
 		// Poll for and process events 
         glfwPollEvents();
 	} 
+
+	deleteArrayForBoard();
 
 	glDeleteBuffers(1, &vertexBuffer);
 
