@@ -167,7 +167,7 @@ int main(void)
 	glClearColor(0.5f, 0.3f, 1.0f, 0.0f);
 
 	// Create and compile our GLSL program from the shaders
-	programID = LoadShaders("TransformVertexShader.vertexshader", "ColorFragmentShader.fragmentshader");
+	programID = LoadShaders("StandardShading.vertexshader", "StandardShading.fragmentshader");
 
 	GLuint Texture = loadBMP_custom("mandrill.bmp");
 
