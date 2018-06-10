@@ -108,17 +108,48 @@ void drawSeg(GLfloat height)
 
 GLuint VertexArrayIDBoard;
 GLuint VertexArrayIDChip;
+GLuint yellowTexture;
+GLuint blueTexture;
+GLuint woodTexture;
 
-void drawChip(glm::vec3 position, GLsizei arraysize) {
+void drawChip(glm::vec3 position, bool player, GLsizei arraysize) {
 	glm::mat4 Save = Model;
 
 	Model = glm::translate(Model, position);
 	sendMVP();
 
+	if (player == true) {
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, yellowTexture);
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0);
+	}
+	else {
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, blueTexture);
+		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0);
+	}
 	glBindVertexArray(VertexArrayIDChip);
 	glDrawArrays(GL_TRIANGLES, 0, arraysize);
 
 	Model = Save;
+}
+
+void drawBoard(GLsizei arraysize) {
+	glm::mat4 Save = Model;
+
+	Model = glm::translate(Model, glm::vec3(8, 0, 8));
+	Model = glm::rotate(Model, anglex, glm::vec3(1, 0, 0));
+	Model = glm::rotate(Model, angley, glm::vec3(0, 1, 0));
+	Model = glm::rotate(Model, anglez, glm::vec3(0, 0, 1));
+	sendMVP();
+	Model = Save;
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, woodTexture);
+	glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0); // 1 integer wert
+
+	glBindVertexArray(VertexArrayIDBoard);
+	glDrawArrays(GL_TRIANGLES, 0, arraysize);
 }
 
 int main(void)
@@ -164,12 +195,15 @@ int main(void)
 	glfwSetKeyCallback(window, key_callback);
 
 	// Dark blue background
-	glClearColor(0.5f, 0.3f, 1.0f, 0.0f);
+	glClearColor(0.5f, 0.3f, 0.5f, 0.0f);
 
 	// Create and compile our GLSL program from the shaders
 	programID = LoadShaders("StandardShading.vertexshader", "StandardShading.fragmentshader");
 
-	GLuint Texture = loadBMP_custom("mandrill.bmp");
+	woodTexture = loadBMP_custom("wood_texture.bmp");
+	yellowTexture = loadBMP_custom("yellow_texture.bmp");
+	blueTexture = loadBMP_custom("blue_texture.bmp");
+
 
 	// Shader auch benutzen !
 	glUseProgram(programID);
@@ -267,38 +301,35 @@ int main(void)
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 		
 		// Camera matrix
-		View = glm::lookAt(glm::vec3(0,15,15), // Camera is at (0,0,-5), in World Space
-						   glm::vec3(0,0,0),  // and looks at the origin
+		View = glm::lookAt(glm::vec3(8,20,14), // Camera is at (0,0,-5), in World Space
+						   glm::vec3(8,0,8),  // and looks at the origin
 						   glm::vec3(0,1,0)); // Head is up (set to 0,-1,0 to look upside-down)
 		
 		// Model matrix : an identity matrix (model will be at the origin)
 		Model = glm::mat4(1.0f);
 
-		Model = glm::rotate(Model, anglex, glm::vec3(1, 0, 0));
-		Model = glm::rotate(Model, angley, glm::vec3(0, 1, 0));
-		Model = glm::rotate(Model, anglez, glm::vec3(0, 0, 1));
+		Model = glm::rotate(Model, 15.0f, glm::vec3(1, 0, 0));
 
 		glm::mat4 Save = Model;
 
 		sendMVP();
 
-		glm::vec3 lightPos = glm::vec3(3, 4, -4);
+		// change y to increase distance from board
+		glm::vec3 lightPos = glm::vec3(8, 20, 12);
 
 		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), lightPos.x, lightPos.y, lightPos.z);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, Texture);
-		glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0); // 1 integer wert
 		
-		glBindVertexArray(VertexArrayIDBoard);
-		glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+		drawBoard(vertices.size());
 		
-		
-		drawChip(glm::vec3(1, 0, 1), chipVertices.size());
+		drawChip(glm::vec3(1, 0, 1), true, chipVertices.size());
 
-		drawChip(glm::vec3(3, 0, 3), chipVertices.size());
+		drawChip(glm::vec3(3, 0, 3), true, chipVertices.size());
 
-		drawChip(glm::vec3(5, 0, 5), chipVertices.size());
+		drawChip(glm::vec3(5, 0, 5), false, chipVertices.size());
+
+
+		drawChip(glm::vec3(5, 0, 3), false, chipVertices.size());
 
 
 
