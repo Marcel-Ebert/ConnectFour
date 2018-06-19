@@ -28,29 +28,7 @@ void error_callback(int error, const char* description)
 	float angley = 0;
 	float anglez = 0;
 		
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	switch (key)
-	{
-	case GLFW_KEY_ESCAPE:
-		glfwSetWindowShouldClose(window, GL_TRUE);
-		break;
 
-	case GLFW_KEY_X:
-		anglex += 5;
-		break;
-	case GLFW_KEY_Y:
-		angley += 5;
-		break;
-	case GLFW_KEY_Z:
-		anglez += 5;
-		break;
-
-
-	default:
-		break;
-	}
-}
 
 
 // Diese Drei Matrizen global (Singleton-Muster), damit sie jederzeit modifiziert und
@@ -178,7 +156,14 @@ void createArrayForBoard() {
 	}
 }
 
-void placeChipInBoard(int col, int row, bool player) {
+void placeChipInBoard(int col, bool player) {
+	int row = 0;
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		if (boardArray[col][i] == 0) {
+			row = i;
+		}
+	}
+
 	if (player == true)
 		boardArray[col][row] = PLAYER;
 	else
@@ -292,6 +277,56 @@ void loadChipToMemory() {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 }
 
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
+{
+	switch (key)
+	{
+	case GLFW_KEY_ESCAPE:
+		glfwSetWindowShouldClose(window, GL_TRUE);
+		break;
+
+	case GLFW_KEY_X:
+		anglex += 5;
+		break;
+	case GLFW_KEY_Y:
+		angley += 5;
+		break;
+	case GLFW_KEY_Z:
+		anglez += 5;
+		break;
+
+
+	case GLFW_KEY_1:
+		placeChipInBoard(0, true);
+		break;
+	case GLFW_KEY_2:
+		placeChipInBoard(1, true);
+		break;
+	case GLFW_KEY_3:
+		placeChipInBoard(2, true);
+		break;
+	case GLFW_KEY_4:
+		placeChipInBoard(3, true);
+		break;
+	case GLFW_KEY_5:
+		placeChipInBoard(4, true);
+		break;
+	case GLFW_KEY_6:
+		placeChipInBoard(5, true);
+		break;
+	case GLFW_KEY_7:
+		placeChipInBoard(6, true);
+		break;
+	case GLFW_KEY_8:
+		placeChipInBoard(7, true);
+		break;
+
+
+	default:
+		break;
+	}
+}
+
 int main(void)
 {
 	// Initialise GLFW
@@ -356,12 +391,6 @@ int main(void)
 	loadChipToMemory();
 
 	createArrayForBoard();
-
-	// place chips in board (only for testing here)
-	placeChipInBoard(0, 0, true);
-
-	placeChipInBoard(0, 4, false);
-
 
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
