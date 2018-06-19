@@ -99,6 +99,8 @@ const int NPC = 2;
 
 const int BOARD_SIZE = 8;
 int boardArray[BOARD_SIZE][BOARD_SIZE];
+float boardChipZPositionArray[BOARD_SIZE][BOARD_SIZE];
+
 
 GLuint VertexArrayIDBoard;
 GLuint VertexArrayIDChip;
@@ -117,6 +119,16 @@ std::vector<glm::vec3> chipNormals;
 GLuint vertexBuffer;
 GLuint normalBuffer;
 GLuint textureBuffer;
+
+
+
+glm::vec3 getChipTargetPosition(int i, int j) {
+	return glm::vec3(1 + i * 2, 0, 1 + j * 2);
+}
+
+glm::vec3 getChipCurrentPosition(int i, int j) {
+	return glm::vec3(1 + i * 2, 0, boardChipZPositionArray[i][j]);
+}
 
 void drawChip(glm::vec3 position, bool player, GLsizei arraysize) {
 	glm::mat4 Save = Model;
@@ -166,17 +178,40 @@ void createArrayForBoard() {
 	}
 }
 
+void placeChipInBoard(int col, int row, bool player) {
+	if (player == true)
+		boardArray[col][row] = PLAYER;
+	else
+		boardArray[col][row] = NPC;
+
+	boardChipZPositionArray[col][row] = 0;
+}
+
+
 void drawChipsInBoardArray() {
 	for (int i = 0; i < BOARD_SIZE; i++) {
 		for (int j = 0; j < BOARD_SIZE; j++) {
 			if (boardArray[i][j] == PLAYER) {
-				drawChip(glm::vec3(1 + i * 2, 0, 1 + j * 2), true, chipVertices.size());
+				drawChip(getChipCurrentPosition(i,j), true, chipVertices.size());
 			} else if (boardArray[i][j] == NPC) {
-				drawChip(glm::vec3(1 + i * 2, 0, 1 + j * 2), false, chipVertices.size());
+				drawChip(getChipCurrentPosition(i, j), false, chipVertices.size());
 			}
 		}
 	}
 }
+
+void updateChipPositions() {
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		for (int j = 0; j < BOARD_SIZE; j++) {
+			if (boardArray[i][j] == PLAYER || boardArray[i][j] == NPC) {
+				if (boardChipZPositionArray[i][j] < getChipTargetPosition(i, j).z) {
+					boardChipZPositionArray[i][j] += 0.05;
+				}
+			}
+		}
+	}
+}
+
 
 void deleteArrayForBoard() {
 	for (int i = 0; i < BOARD_SIZE; ++i) {
@@ -323,15 +358,9 @@ int main(void)
 	createArrayForBoard();
 
 	// place chips in board (only for testing here)
-	boardArray[0][0] = PLAYER;
-	boardArray[0][1] = PLAYER;
-	boardArray[0][2] = PLAYER;
-	boardArray[0][3] = PLAYER;
-	boardArray[0][4] = PLAYER;
-	boardArray[5][0] = NPC;
-	boardArray[6][0] = NPC;
-	boardArray[7][0] = NPC;
-	boardArray[8][0] = NPC;
+	placeChipInBoard(0, 0, true);
+
+	placeChipInBoard(0, 4, false);
 
 
 	// Eventloop
@@ -364,6 +393,8 @@ int main(void)
 		glm::vec3 lightPos = glm::vec3(8, 20, 12);
 
 		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), lightPos.x, lightPos.y, lightPos.z);
+
+		updateChipPositions();
 
 		drawBoard();
 
