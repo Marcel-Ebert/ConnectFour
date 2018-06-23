@@ -57,23 +57,6 @@ void sendMVP()
 #include "objloader.hpp"
 #include "texture.hpp"
 
-void drawCS()
-{
-	glm::mat4 Save = Model;
-	Model = glm::scale(Save, glm::vec3(20, 0.001, 0.001));
-	sendMVP();
-	drawWireCube();
-
-	Model = glm::scale(Save, glm::vec3(0.001, 20, 0.001));
-	sendMVP();
-	drawWireCube();
-
-	Model = glm::scale(Save, glm::vec3(0.001, 0.001, 20));
-	sendMVP();
-	drawWireCube();
-
-}
-
 const int PLAYER = 1;
 const int NPC = 2;
 
@@ -116,6 +99,32 @@ void drawChip(glm::vec3 position, bool player, GLsizei arraysize) {
 	Model = glm::translate(Model, position);
 	sendMVP();
 
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
+	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+		&chipVertices[0],
+		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+
+	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
+	glVertexAttribPointer(0, // Position in shader
+		3, // Datenformat (3 Werte)
+		GL_FLOAT, // Typ
+		GL_FALSE, // normalisiert?
+		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
+		(void*)0); // kann beliebigen Datentyp annehmen
+
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, chipNormals.size() * sizeof(glm::vec3), &chipNormals[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
+	glBufferData(GL_ARRAY_BUFFER, chipUvs.size() * sizeof(glm::vec2), &chipUvs[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+
 	if (player == true) {
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, yellowTexture);
@@ -145,6 +154,31 @@ void drawBoard() {
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, woodTexture);
 	glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0); // 1 integer wert
+
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
+	glBufferData(GL_ARRAY_BUFFER, boardVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+		&boardVertices[0],
+		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+
+	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
+	glVertexAttribPointer(0, // Position in shader
+		3, // Datenformat (3 Werte)
+		GL_FLOAT, // Typ
+		GL_FALSE, // normalisiert?
+		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
+		(void*)0); // kann beliebigen Datentyp annehmen
+
+	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
+	glBufferData(GL_ARRAY_BUFFER, boardNormals.size() * sizeof(glm::vec3), &boardNormals[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
+	glBufferData(GL_ARRAY_BUFFER, boardUVs.size() * sizeof(glm::vec2), &boardUVs[0], GL_STATIC_DRAW);
+
+	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glBindVertexArray(VertexArrayIDBoard);
 	glDrawArrays(GL_TRIANGLES, 0, boardVertices.size());
@@ -442,8 +476,6 @@ int main(void)
 
 		drawChipsInBoardArray();
 		
-		drawCS();
-
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
