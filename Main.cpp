@@ -20,6 +20,8 @@ using namespace glm;
 // Wuerfel und Kugel
 #include "objects.hpp"
 
+#include "text2d.hpp"
+
 void error_callback(int error, const char* description)
 {
 	fputs(description, stderr); // gibt string aus (in dem Fall auf Konsole)
@@ -297,27 +299,35 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 
 	case GLFW_KEY_1:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(0, true);
 		break;
 	case GLFW_KEY_2:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(1, true);
 		break;
 	case GLFW_KEY_3:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(2, true);
 		break;
 	case GLFW_KEY_4:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(3, true);
 		break;
 	case GLFW_KEY_5:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(4, true);
 		break;
 	case GLFW_KEY_6:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(5, true);
 		break;
 	case GLFW_KEY_7:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(6, true);
 		break;
 	case GLFW_KEY_8:
+		if (action == GLFW_PRESS)
 		placeChipInBoard(7, true);
 		break;
 
@@ -392,14 +402,17 @@ int main(void)
 
 	createArrayForBoard();
 
+	initText2D("Holstein.DDS");
+	
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
 	{
-
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT);
+
+		glUseProgram(programID);
 
 		// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
@@ -431,6 +444,12 @@ int main(void)
 		
 		drawCS();
 
+		glDisableVertexAttribArray(0);
+		glDisableVertexAttribArray(1);
+		glDisableVertexAttribArray(2);
+
+		printText2D("Test", 10, 500, 60);
+
 		// Swap buffers
 		glfwSwapBuffers(window);
 
@@ -439,6 +458,8 @@ int main(void)
 	} 
 
 	deleteArrayForBoard();
+
+	cleanupText2D();
 
 	glDeleteBuffers(1, &vertexBuffer);
 

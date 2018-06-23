@@ -318,6 +318,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="objects.cpp" />
     <ClCompile Include="objloader.cpp" />
     <ClCompile Include="shader.cpp" />
+    <ClCompile Include="text2d.cpp" />
     <ClCompile Include="texture.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">external\glfw-3.1.2\include;external\glew-1.13.0;external\glm-0.9.4.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -326,6 +327,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClInclude Include="objects.hpp" />
     <ClInclude Include="objloader.hpp" />
     <ClInclude Include="shader.hpp" />
+    <ClInclude Include="text2d.hpp" />
     <ClInclude Include="texture.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
