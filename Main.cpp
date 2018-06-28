@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <vector>
 
+//for console output
+#include <iostream>
+
 // Include GLEW
 #include <GL/glew.h>
 
@@ -26,10 +29,10 @@ void error_callback(int error, const char* description)
 {
 	fputs(description, stderr); // gibt string aus (in dem Fall auf Konsole)
 }
-	float anglex = 0;
-	float angley = 0;
-	float anglez = 0;
-		
+float anglex = 0;
+float angley = 0;
+float anglez = 0;
+
 
 
 
@@ -38,12 +41,12 @@ void error_callback(int error, const char* description)
 glm::mat4 Projection; //Bildschirm
 glm::mat4 View; // Position+Rotation(+Skalierung) der Kamera in 3d-Raum
 glm::mat4 Model; // Transformationsmatrix für Objekte
-GLuint programID; 
+GLuint programID;
 
 void sendMVP()
 {
 	// Our ModelViewProjection : multiplication of our 3 matrices
-	glm::mat4 MVP = Projection * View * Model; 
+	glm::mat4 MVP = Projection * View * Model;
 	// Send our transformation to the currently bound shader, 
 	// in the "MVP" uniform, konstant fuer alle Eckpunkte
 	glUniformMatrix4fv(glGetUniformLocation(programID, "MVP"), 1, GL_FALSE, &MVP[0][0]);
@@ -57,6 +60,8 @@ void sendMVP()
 #include "objloader.hpp"
 #include "texture.hpp"
 
+bool gameOver = false;
+bool playerWon = false;
 const int PLAYER = 1;
 const int NPC = 2;
 
@@ -64,6 +69,11 @@ const int BOARD_SIZE = 8;
 int boardArray[BOARD_SIZE][BOARD_SIZE];
 float boardChipZPositionArray[BOARD_SIZE][BOARD_SIZE];
 
+//save cordinates of last move
+int lastMoveColumn = -1;
+int lastMoveRow = -1;
+//number of moves
+int totalMoves = 0;
 
 GLuint VertexArrayIDBoard;
 GLuint VertexArrayIDChip;
@@ -82,7 +92,6 @@ std::vector<glm::vec3> chipNormals;
 GLuint vertexBuffer;
 GLuint normalBuffer;
 GLuint textureBuffer;
-
 
 
 glm::vec3 getChipTargetPosition(int i, int j) {
@@ -192,6 +201,14 @@ void createArrayForBoard() {
 	}
 }
 
+void createZPositionArrayForBoard() {
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		for (int j = 0; j < BOARD_SIZE; j++) {
+			boardChipZPositionArray[i][j] = 0;
+		}
+	}
+}
+
 void placeChipInBoard(int col, bool player) {
 	int row = 0;
 	for (int i = 0; i < BOARD_SIZE; i++) {
@@ -213,10 +230,23 @@ void drawChipsInBoardArray() {
 	for (int i = 0; i < BOARD_SIZE; i++) {
 		for (int j = 0; j < BOARD_SIZE; j++) {
 			if (boardArray[i][j] == PLAYER) {
-				drawChip(getChipCurrentPosition(i,j), true, chipVertices.size());
-			} else if (boardArray[i][j] == NPC) {
+				drawChip(getChipCurrentPosition(i, j), true, chipVertices.size());
+			}
+			else if (boardArray[i][j] == NPC) {
 				drawChip(getChipCurrentPosition(i, j), false, chipVertices.size());
 			}
+		}
+	}
+}
+
+void drawGameInfoText() {
+	if (gameOver) {
+		if (playerWon) {
+			printText2D("Player won!", 10, 500, 60);
+		}
+		else {
+			printText2D("NPC won!", 10, 500, 60);
+
 		}
 	}
 }
@@ -241,6 +271,13 @@ void deleteArrayForBoard() {
 	delete[] boardArray;
 }
 
+void restartGame() {
+	gameOver = false;
+	playerWon = false;
+
+	createArrayForBoard();
+	createZPositionArrayForBoard();
+}
 
 void loadBoardToMemory() {
 	bool res = loadOBJ("ConnectFourBoard.obj", boardVertices, boardUVs, boardNormals);
@@ -268,7 +305,7 @@ void loadBoardToMemory() {
 
 	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-	
+
 	glGenBuffers(1, &textureBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, boardUVs.size() * sizeof(glm::vec2), &boardUVs[0], GL_STATIC_DRAW);
@@ -304,13 +341,293 @@ void loadChipToMemory() {
 
 	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-;
+	;
 	glGenBuffers(1, &textureBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chipUvs.size() * sizeof(glm::vec2), &chipUvs[0], GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+}
+
+//returns current player based on who did the last move
+int getCurrentplayer() {
+	if (boardArray[lastMoveColumn][lastMoveRow] == 1) {
+		return 2;
+	}
+	if (boardArray[lastMoveColumn][lastMoveRow] == 2) {
+		return 1;
+	}
+	else {
+		return rand() % 1 + 1;
+	}
+}
+
+// return die row die den nächsten freien spot hat. Falls in der column die unteren 3 steine gespielt sind(also 7 6 und 5) return 4. return -1 falls column voll.
+int checkDepth(int column) {
+	for (int i = BOARD_SIZE - 1; i >= 0; i--) {
+		if (boardArray[column][i] == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+//kopie des brettes für kalkulationen für den bot
+int boardArrayCopy[BOARD_SIZE][BOARD_SIZE];
+//kopiert den current state vom brett in die kopie
+void copyTheBoard() {
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		for (int j = 0; j < BOARD_SIZE; j++) {
+			boardArrayCopy[i][j] = boardArray[i][j];
+
+		}
+
+	}
+
+}
+//checkt falls durch das platzieren eines steines der momentane spieler das spiel gewonnen haette. return true falls winning move.
+bool isWinningMove(int column, int player) {
+
+	copyTheBoard();
+	int depth = checkDepth(column);
+	if (depth != -1) {
+		boardArrayCopy[column][depth] = player;
+
+		int counter = 0;
+		//check senkrecht
+
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (boardArrayCopy[column][i] == player) {
+				counter++;
+				if (counter == 4) {
+
+					return true;
+				}
+			}
+			else {
+				counter = 0;
+			}
+		}
+		counter = 0;
+		//check waagrecht
+
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (boardArrayCopy[i][depth] == player) {
+				counter++;
+				if (counter == 4) {
+					return true;
+				}
+			}
+			else {
+				counter = 0;
+			}
+		}
+		counter = 0;
+
+		//check horizontal
+		//von oben links nach unten rechts
+
+		int startrow = BOARD_SIZE - 1 - column + depth;
+		int startcolumn = BOARD_SIZE - 1;
+		while (startrow > BOARD_SIZE - 1) {
+			startrow--;
+			startcolumn--;
+		}
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (startrow >= 0 && startcolumn >= 0) {
+				if (boardArrayCopy[startcolumn][startrow] == player) {
+					counter++;
+					if (counter == 4) {
+						return true;
+					}
+				}
+				else {
+					counter = 0;
+				}
+			}
+			startrow--;
+			startcolumn--;
+		}
+		counter = 0;
+
+
+		//check horizontal
+		//von oben rechts nach unten links
+
+		startrow = depth + column;
+		startcolumn = 0;
+		while (startrow > BOARD_SIZE - 1) {
+			startrow--;
+			startcolumn++;
+		}
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (startrow >= 0 && startcolumn < BOARD_SIZE) {
+				if (boardArrayCopy[startcolumn][startrow] == player) {
+					counter++;
+					if (counter == 4) {
+						return true;
+					}
+				}
+				else {
+					counter = 0;
+				}
+			}
+			startrow--;
+			startcolumn++;
+		}
+	}
+	return false;
+
+}
+
+//play a chip for a player in a given column on the first free space in that column
+bool playChip(int column, int player) {
+	int depth = checkDepth(column);
+	if (depth != -1) {
+		if (player == 1) {
+			if (isWinningMove(column, player)) {
+				gameOver = true;
+				playerWon = true;
+				std::cout << "PLAYER!!! WON" << std::endl;
+			}
+			boardArray[column][depth] = 1;
+			lastMoveColumn = column;
+			lastMoveRow = depth;
+			totalMoves++;
+			return true;
+		}
+		else {
+			if (isWinningMove(column, player)) {
+				gameOver = true;
+				playerWon = false;
+				std::cout << "NPC!!! WON" << std::endl;
+			}
+			boardArray[column][depth] = 2;
+			lastMoveColumn = column;
+			lastMoveRow = depth;
+			totalMoves++;
+			return true;
+		}
+		return false;
+	}
+	else { return false; }
+}
+
+int totalMovesCopy = 0;
+void copyTotalMoves() {
+	totalMovesCopy = totalMoves;
+}
+//playchip but for the copy board to calculate for the pc
+bool playCopy(int column, int player) {
+	int depth = checkDepth(column);
+	if (depth != -1) {
+		if (player == 1) {
+
+			boardArrayCopy[column][depth] = 1;
+
+			totalMovesCopy++;
+			return true;
+		}
+		else {
+			boardArrayCopy[column][depth] = 2;
+
+			totalMovesCopy++;
+			return true;
+		}
+		return false;
+	}
+	else { return false; }
+
+}
+//checkdepth but for copy
+int checkCopy(int column) {
+	for (int i = BOARD_SIZE - 1; i >= 0; i--) {
+		if (boardArrayCopy[column][i] == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+//how does this work? it doesnt
+int negamax(int column, int player, int counter) {
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		if (checkCopy(column) != -1 && isWinningMove(column, player)) {//falls nächster move gewinnt 
+			return (BOARD_SIZE*BOARD_SIZE + 1 - totalMovesCopy) / 2;
+		}
+	}
+	int maxScore = -BOARD_SIZE * BOARD_SIZE;
+	if (counter > 0) {
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (checkCopy(column) != -1) {
+				playCopy(i, player);
+				if (player == 1) { player = 2; }
+				else { player = 1; }
+				int score = -negamax(i, player, counter - 1);
+
+				if (score > maxScore) {
+					maxScore = score;
+				}
+			}
+		}
+	}
+	if (counter == 0) {
+		copyTheBoard();
+		copyTotalMoves();
+		std::cout << "i cleared the board" << std::endl;
+		return maxScore;
+	}
+}
+//hotseat, return true if move succesful, false otherwise
+
+bool hotSeat(int column) {
+	return playChip(column, getCurrentplayer());
+}
+//modes; current mode = true, rest false; for more info look at key callback
+bool hotseat = false;
+bool vscomputer = true;
+int difficulty = 1; //schwierigkeitsgrad von computer gegner. 0= random moves,1=plays winning moves, playes against winning player moves, otherwise random
+
+void easyNPC() {
+	int v2 = rand() % 8; //rng zwischen 0-7(0 1 2 3 4 5 6 7)
+	playChip(v2, 2);
+}
+void mediumNPC() {
+	bool ididmymove = false;
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		if (isWinningMove(i, 2)) {
+			playChip(i, 2);
+			ididmymove = true;
+			break;
+		}
+	}
+	if (!ididmymove) {
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (isWinningMove(i, 1)) {
+				playChip(i, 2);
+				ididmymove = true;
+				break;
+			}
+		}
+	}
+	if (!ididmymove) {
+		easyNPC();
+	}
+}
+void hardNPC() {
+	copyTheBoard();
+	negamax(0, 2, 1);
+}
+
+void computerMove() {
+	if (difficulty == 0) {
+		easyNPC();
+	}
+	else if (difficulty == 1) {
+		mediumNPC();
+	}
+	else if (difficulty == 2) {
+		hardNPC();
+	}
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -330,46 +647,119 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	case GLFW_KEY_Z:
 		anglez += 5;
 		break;
-
-
+	case GLFW_KEY_R:
+		restartGame();
+		break;
 	case GLFW_KEY_1:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(0, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(0);
+				}
+				else if (vscomputer) {
+					hotSeat(0);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_2:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(1, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(1);
+				}
+				else if (vscomputer) {
+					hotSeat(1);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_3:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(2, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(2);
+				}
+				else if (vscomputer) {
+					hotSeat(2);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_4:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(3, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(3);
+				}
+				else if (vscomputer) {
+					hotSeat(3);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_5:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(4, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(4);
+				}
+				else if (vscomputer) {
+					hotSeat(4);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_6:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(5, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(5);
+				}
+				else if (vscomputer) {
+					hotSeat(5);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_7:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(6, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(6);
+				}
+				else if (vscomputer) {
+					hotSeat(6);
+					computerMove();
+				}
+			}
+		}
 		break;
 	case GLFW_KEY_8:
-		if (action == GLFW_PRESS)
-		placeChipInBoard(7, true);
+		if (action == GLFW_PRESS) {
+			if (!gameOver) {
+				if (hotseat) {
+					hotSeat(7);
+				}
+				else if (vscomputer) {
+					hotSeat(7);
+					computerMove();
+				}
+			}
+		}
 		break;
-
 
 	default:
 		break;
 	}
 }
+
 
 int main(void)
 {
@@ -386,10 +776,10 @@ int main(void)
 	// Open a window and create its OpenGL context
 	// glfwWindowHint vorher aufrufen, um erforderliche Resourcen festzulegen
 	GLFWwindow* window = glfwCreateWindow(1300, // Breite
-										  1000,  // Hoehe
-										  "Connect four", // Ueberschrift
-										  NULL,  // windowed mode
-										  NULL); // shared window
+		1000,  // Hoehe
+		"Connect four", // Ueberschrift
+		NULL,  // windowed mode
+		NULL); // shared window
 
 	if (!window)
 	{
@@ -398,7 +788,7 @@ int main(void)
 	}
 
 	// Make the window's context current (wird nicht automatisch gemacht)
-    glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(window);
 
 	// Initialize GLEW
 	// GLEW ermöglicht Zugriff auf OpenGL-API > 1.1
@@ -429,15 +819,16 @@ int main(void)
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-	
+
 	loadBoardToMemory();
 
 	loadChipToMemory();
 
 	createArrayForBoard();
+	createZPositionArrayForBoard();
 
 	initText2D("Holstein.DDS");
-	
+
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
 	{
@@ -450,13 +841,13 @@ int main(void)
 
 		// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
-		
+
 		// Camera matrix
-		View = glm::lookAt(glm::vec3(8,20,14), // Camera is at (0,0,-5), in World Space
-						   glm::vec3(8,0,8),  // and looks at the origin
-						   glm::vec3(0,1,0)); // Head is up (set to 0,-1,0 to look upside-down)
-		
-		// Model matrix : an identity matrix (model will be at the origin)
+		View = glm::lookAt(glm::vec3(8, 20, 14), // Camera is at (0,0,-5), in World Space
+			glm::vec3(8, 0, 8),  // and looks at the origin
+			glm::vec3(0, 1, 0)); // Head is up (set to 0,-1,0 to look upside-down)
+
+								 // Model matrix : an identity matrix (model will be at the origin)
 		Model = glm::mat4(1.0f);
 
 		Model = glm::rotate(Model, 15.0f, glm::vec3(1, 0, 0));
@@ -475,19 +866,20 @@ int main(void)
 		drawBoard();
 
 		drawChipsInBoardArray();
-		
+
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
 
-		printText2D("Test", 10, 500, 60);
+		drawGameInfoText();
+
 
 		// Swap buffers
 		glfwSwapBuffers(window);
 
 		// Poll for and process events 
-        glfwPollEvents();
-	} 
+		glfwPollEvents();
+	}
 
 	deleteArrayForBoard();
 
