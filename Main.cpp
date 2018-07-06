@@ -4,7 +4,6 @@
 #include <vector>
 
 // TODO kleiner delay bevor gegner setzt
-// Bug: Wenn zwei mal auf 0 gedrückt wird geht das game nicht mehr
 // Bug: Spiel beendet nicht richtig
 // TODO zahlen über spalten anzeigen?
 // TODO spiel beenden wenn brett voll
@@ -71,6 +70,8 @@ bool gameOver = false;
 bool playerWon = false;
 const int PLAYER = 1;
 const int NPC = 2;
+
+const double CAMERA_MOVEMENT_SPEED = 0.05;
 
 const int BOARD_SIZE = 8;
 int boardArray[BOARD_SIZE][BOARD_SIZE];
@@ -695,11 +696,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 {
 	switch (key)
 	{
-	case GLFW_KEY_ESCAPE:
-		glfwSetWindowShouldClose(window, GL_TRUE);
-		break;
-
-
 	case GLFW_KEY_X:
 		anglex += 5;
 		break;
@@ -843,13 +839,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		}
 		break;
 	case GLFW_KEY_0:
+	case GLFW_KEY_ESCAPE:
 		if (action == GLFW_PRESS) {
-			hotseat = false;
-			vscomputer = false;
-			menu = !menu;
-			restartGame();
+			if (!menu) {
+				hotseat = false;
+				vscomputer = false;
+				menu = !menu;
+				restartGame();
+			}
 
-			//reset board
 		}
 	default:
 		break;
@@ -940,8 +938,8 @@ int main(void)
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 
 		//bewegt das board in und aus dem frame heraus
-		if (menu && camangle < 17) { camangle += 0.01; }
-		else if (!menu && camangle > 0) { camangle -= 0.01; }
+		if (menu && camangle < 17) { camangle += CAMERA_MOVEMENT_SPEED; }
+		else if (!menu && camangle > 0) { camangle -= CAMERA_MOVEMENT_SPEED; }
 
 		// Camera matrix
 		View = glm::lookAt(glm::vec3(8, 20, 14), // Cam era is at (0,0,-5), in World Space
