@@ -3,6 +3,12 @@
 #include <stdlib.h>
 #include <vector>
 
+// TODO kleiner delay bevor gegner setzt
+// Bug: Wenn zwei mal auf 0 gedrückt wird geht das game nicht mehr
+// Bug: Spiel beendet nicht richtig
+// TODO zahlen über spalten anzeigen?
+// TODO spiel beenden wenn brett voll
+
 //for console output
 #include <iostream>
 
@@ -32,12 +38,13 @@ void error_callback(int error, const char* description)
 float anglex = 0;
 float angley = 0;
 float anglez = 0;
+float camangle = 17; //17 to remove board from view
 
 
 
 
-// Diese Drei Matrizen global (Singleton-Muster), damit sie jederzeit modifiziert und
-// an die Grafikkarte geschickt werden koennen
+					 // Diese Drei Matrizen global (Singleton-Muster), damit sie jederzeit modifiziert und
+					 // an die Grafikkarte geschickt werden koennen
 glm::mat4 Projection; //Bildschirm
 glm::mat4 View; // Position+Rotation(+Skalierung) der Kamera in 3d-Raum
 glm::mat4 Model; // Transformationsmatrix für Objekte
@@ -92,6 +99,7 @@ std::vector<glm::vec3> chipNormals;
 GLuint vertexBuffer;
 GLuint normalBuffer;
 GLuint textureBuffer;
+
 
 
 glm::vec3 getChipTargetPosition(int i, int j) {
@@ -193,18 +201,21 @@ void drawBoard() {
 	glDrawArrays(GL_TRIANGLES, 0, boardVertices.size());
 }
 
-void createArrayForBoard() {
-	for (int i = 0; i < BOARD_SIZE; i++) {
-		for (int j = 0; j < BOARD_SIZE; j++) {
-			boardArray[i][j] = 0;
-		}
-	}
-}
-
 void createZPositionArrayForBoard() {
 	for (int i = 0; i < BOARD_SIZE; i++) {
 		for (int j = 0; j < BOARD_SIZE; j++) {
 			boardChipZPositionArray[i][j] = 0;
+
+		}
+
+	}
+
+}
+
+void createArrayForBoard() {
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		for (int j = 0; j < BOARD_SIZE; j++) {
+			boardArray[i][j] = 0;
 		}
 	}
 }
@@ -225,7 +236,6 @@ void placeChipInBoard(int col, bool player) {
 	boardChipZPositionArray[col][row] = 0;
 }
 
-
 void drawChipsInBoardArray() {
 	for (int i = 0; i < BOARD_SIZE; i++) {
 		for (int j = 0; j < BOARD_SIZE; j++) {
@@ -235,18 +245,6 @@ void drawChipsInBoardArray() {
 			else if (boardArray[i][j] == NPC) {
 				drawChip(getChipCurrentPosition(i, j), false, chipVertices.size());
 			}
-		}
-	}
-}
-
-void drawGameInfoText() {
-	if (gameOver) {
-		if (playerWon) {
-			printText2D("Player won!", 10, 500, 60);
-		}
-		else {
-			printText2D("NPC won!", 10, 500, 60);
-
 		}
 	}
 }
@@ -277,6 +275,7 @@ void restartGame() {
 
 	createArrayForBoard();
 	createZPositionArrayForBoard();
+
 }
 
 void loadBoardToMemory() {
@@ -349,6 +348,8 @@ void loadChipToMemory() {
 	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 }
+
+
 
 //returns current player based on who did the last move
 int getCurrentplayer() {
@@ -511,6 +512,7 @@ bool playChip(int column, int player) {
 		return false;
 	}
 	else { return false; }
+
 }
 
 int totalMovesCopy = 0;
@@ -521,6 +523,9 @@ void copyTotalMoves() {
 bool playCopy(int column, int player) {
 	int depth = checkDepth(column);
 	if (depth != -1) {
+
+
+
 		if (player == 1) {
 
 			boardArrayCopy[column][depth] = 1;
@@ -529,11 +534,14 @@ bool playCopy(int column, int player) {
 			return true;
 		}
 		else {
+
 			boardArrayCopy[column][depth] = 2;
 
 			totalMovesCopy++;
 			return true;
 		}
+
+
 		return false;
 	}
 	else { return false; }
@@ -550,6 +558,7 @@ int checkCopy(int column) {
 }
 //how does this work? it doesnt
 int negamax(int column, int player, int counter) {
+
 	for (int i = 0; i < BOARD_SIZE; i++) {
 		if (checkCopy(column) != -1 && isWinningMove(column, player)) {//falls nächster move gewinnt 
 			return (BOARD_SIZE*BOARD_SIZE + 1 - totalMovesCopy) / 2;
@@ -576,19 +585,28 @@ int negamax(int column, int player, int counter) {
 		std::cout << "i cleared the board" << std::endl;
 		return maxScore;
 	}
+
+
 }
 //hotseat, return true if move succesful, false otherwise
 
 bool hotSeat(int column) {
+
 	return playChip(column, getCurrentplayer());
+
+
 }
 //modes; current mode = true, rest false; for more info look at key callback
 bool hotseat = false;
-bool vscomputer = true;
-int difficulty = 1; //schwierigkeitsgrad von computer gegner. 0= random moves,1=plays winning moves, playes against winning player moves, otherwise random
+bool vscomputer = false;
+bool menu = true;
+int difficulty = 0; //schwierigkeitsgrad von computer gegner. 0= random moves,1=plays winning moves, playes against winning player moves, otherwise random
 
 void easyNPC() {
-	int v2 = rand() % 8; //rng zwischen 0-7(0 1 2 3 4 5 6 7)
+	int v2 = rand() % BOARD_SIZE; //rng zwischen 0-7(0 1 2 3 4 5 6 7)
+	while (checkDepth(v2) == -1) {
+		v2 = rand() % BOARD_SIZE;
+	}
 	playChip(v2, 2);
 }
 void mediumNPC() {
@@ -618,17 +636,60 @@ void hardNPC() {
 	negamax(0, 2, 1);
 }
 
+
+
 void computerMove() {
 	if (difficulty == 0) {
 		easyNPC();
 	}
-	else if (difficulty == 1) {
+	if (difficulty == 1) {
 		mediumNPC();
 	}
-	else if (difficulty == 2) {
+	if (difficulty == 2) {
 		hardNPC();
 	}
 }
+
+
+void drawGameInfoText() {
+	if (gameOver) {
+		if (playerWon) {
+			printText2D("Player won!", 10, 500, 60);
+			printText2D("Press 0 to go back to Menu", 420, 5, 12);
+		}
+		else {
+			if (hotseat) {
+				printText2D("PLAYER2 won!", 10, 500, 60);
+				printText2D("Press 0 to go back to Menu", 420, 5, 12);
+			}
+			else {
+				printText2D("NPC won!", 10, 500, 60);
+				printText2D("Press 0 to go back to Menu", 420, 5, 12);
+			}
+		}
+	}
+	else if (menu) {
+		printText2D("MENU", 300, 530, 60);
+		printText2D("1. Hotseat", 50, 430, 35);
+		printText2D("2. vs easy NPC", 50, 330, 35);
+		printText2D("3. vs medium NPC", 50, 230, 35);
+		printText2D("4. vs hard NPC", 50, 130, 35);
+		printText2D("5. Quit", 50, 30, 35);
+
+	}
+	else {
+		printText2D("Player", 50, 550, 40);
+		printText2D("vs", 350, 550, 40);
+		printText2D("Press 0 to go back to Menu", 420, 5, 12);
+		if (vscomputer) {
+			printText2D("NPC", 500, 550, 40);
+		}
+		else {
+			printText2D("Player2", 500, 550, 40);
+		}
+	}
+}
+
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -637,6 +698,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	case GLFW_KEY_ESCAPE:
 		glfwSetWindowShouldClose(window, GL_TRUE);
 		break;
+
 
 	case GLFW_KEY_X:
 		anglex += 5;
@@ -647,9 +709,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	case GLFW_KEY_Z:
 		anglez += 5;
 		break;
-	case GLFW_KEY_R:
-		restartGame();
-		break;
 	case GLFW_KEY_1:
 		if (action == GLFW_PRESS) {
 			if (!gameOver) {
@@ -659,6 +718,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				else if (vscomputer) {
 					hotSeat(0);
 					computerMove();
+				}
+				else if (menu) {
+					hotseat = true;
+					vscomputer = false;
+					menu = !menu;
+
 				}
 			}
 		}
@@ -673,6 +738,13 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(1);
 					computerMove();
 				}
+				else if (menu) {
+					menu = !menu;
+					hotseat = false;
+					vscomputer = true;
+					difficulty = 0;
+
+				}
 			}
 		}
 		break;
@@ -685,6 +757,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				else if (vscomputer) {
 					hotSeat(2);
 					computerMove();
+				}
+				else if (menu) {
+					menu = !menu;
+					hotseat = false;
+					vscomputer = true;
+					difficulty = 1;
 				}
 			}
 		}
@@ -699,6 +777,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(3);
 					computerMove();
 				}
+				else if (menu) {
+					menu = !menu;
+					hotseat = false;
+					vscomputer = true;
+					difficulty = 2;
+				}
 			}
 		}
 		break;
@@ -711,6 +795,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				else if (vscomputer) {
 					hotSeat(4);
 					computerMove();
+				}
+				else if (menu) {
+					glfwSetWindowShouldClose(window, GL_TRUE);
+					break;
 				}
 			}
 		}
@@ -754,7 +842,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			}
 		}
 		break;
+	case GLFW_KEY_0:
+		if (action == GLFW_PRESS) {
+			hotseat = false;
+			vscomputer = false;
+			menu = !menu;
+			restartGame();
 
+			//reset board
+		}
 	default:
 		break;
 	}
@@ -825,6 +921,7 @@ int main(void)
 	loadChipToMemory();
 
 	createArrayForBoard();
+
 	createZPositionArrayForBoard();
 
 	initText2D("Holstein.DDS");
@@ -842,9 +939,13 @@ int main(void)
 		// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 
+		//bewegt das board in und aus dem frame heraus
+		if (menu && camangle < 17) { camangle += 0.01; }
+		else if (!menu && camangle > 0) { camangle -= 0.01; }
+
 		// Camera matrix
-		View = glm::lookAt(glm::vec3(8, 20, 14), // Camera is at (0,0,-5), in World Space
-			glm::vec3(8, 0, 8),  // and looks at the origin
+		View = glm::lookAt(glm::vec3(8, 20, 14), // Cam era is at (0,0,-5), in World Space
+			glm::vec3(8, camangle, 8),  // and looks at the origin
 			glm::vec3(0, 1, 0)); // Head is up (set to 0,-1,0 to look upside-down)
 
 								 // Model matrix : an identity matrix (model will be at the origin)
@@ -867,11 +968,12 @@ int main(void)
 
 		drawChipsInBoardArray();
 
+		drawGameInfoText();
+
 		glDisableVertexAttribArray(0);
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
 
-		drawGameInfoText();
 
 
 		// Swap buffers
