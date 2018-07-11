@@ -5,11 +5,13 @@
 
 // TODO kleiner delay bevor gegner setzt
 // Bug: Spiel beendet nicht richtig
-// TODO zahlen über spalten anzeigen?
-// TODO spiel beenden wenn brett voll
 
 //for console output
 #include <iostream>
+//for delay
+#include <chrono>
+#include <thread>
+//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
 // Include GLEW
 #include <GL/glew.h>
@@ -270,6 +272,13 @@ void deleteArrayForBoard() {
 	delete[] boardArray;
 }
 
+void deleteZPositionArray() {
+	for (int i = 0; i < BOARD_SIZE; ++i) {
+		delete[] boardChipZPositionArray[i];
+	}
+	delete[] boardChipZPositionArray;
+}
+
 void restartGame() {
 	gameOver = false;
 	playerWon = false;
@@ -363,6 +372,13 @@ int getCurrentplayer() {
 	else {
 		return rand() % 1 + 1;
 	}
+}
+//return true if board is full
+bool isBoardFullCheck() {
+	if (totalMoves == BOARD_SIZE * BOARD_SIZE) {
+		return true;
+	}
+	return false;
 }
 
 // return die row die den nächsten freien spot hat. Falls in der column die unteren 3 steine gespielt sind(also 7 6 und 5) return 4. return -1 falls column voll.
@@ -490,24 +506,30 @@ bool playChip(int column, int player) {
 			if (isWinningMove(column, player)) {
 				gameOver = true;
 				playerWon = true;
-				std::cout << "PLAYER!!! WON" << std::endl;
+
 			}
 			boardArray[column][depth] = 1;
 			lastMoveColumn = column;
 			lastMoveRow = depth;
 			totalMoves++;
+			if (isBoardFullCheck()) {
+				gameOver = true;
+			}
 			return true;
 		}
 		else {
 			if (isWinningMove(column, player)) {
 				gameOver = true;
 				playerWon = false;
-				std::cout << "NPC!!! WON" << std::endl;
+
 			}
 			boardArray[column][depth] = 2;
 			lastMoveColumn = column;
 			lastMoveRow = depth;
 			totalMoves++;
+			if (isBoardFullCheck()) {
+				gameOver = true;
+			}
 			return true;
 		}
 		return false;
@@ -640,6 +662,7 @@ void hardNPC() {
 
 
 void computerMove() {
+
 	if (difficulty == 0) {
 		easyNPC();
 	}
@@ -659,14 +682,19 @@ void drawGameInfoText() {
 			printText2D("Press 0 to go back to Menu", 420, 5, 12);
 		}
 		else {
-			if (hotseat) {
+			if (isBoardFullCheck()) {
+				printText2D("Game tied!", 10, 500, 60);
+				printText2D("Press 0 to go back to Menu", 420, 5, 12);
+			}
+			else if (hotseat) {
 				printText2D("PLAYER2 won!", 10, 500, 60);
 				printText2D("Press 0 to go back to Menu", 420, 5, 12);
 			}
-			else {
+			else if (vscomputer) {
 				printText2D("NPC won!", 10, 500, 60);
 				printText2D("Press 0 to go back to Menu", 420, 5, 12);
 			}
+
 		}
 	}
 	else if (menu) {
@@ -682,6 +710,8 @@ void drawGameInfoText() {
 		printText2D("Player", 50, 550, 40);
 		printText2D("vs", 350, 550, 40);
 		printText2D("Press 0 to go back to Menu", 420, 5, 12);
+		printText2D("1  2  3  4  5  6  7  8", 160, 530, 22);
+
 		if (vscomputer) {
 			printText2D("NPC", 500, 550, 40);
 		}
@@ -713,6 +743,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				}
 				else if (vscomputer) {
 					hotSeat(0);
+
 					computerMove();
 				}
 				else if (menu) {
@@ -981,7 +1012,9 @@ int main(void)
 		glfwPollEvents();
 	}
 
-	deleteArrayForBoard();
+	// this raises an exception
+	//deleteArrayForBoard(); 
+	//deleteZPositionArray();
 
 	cleanupText2D();
 
