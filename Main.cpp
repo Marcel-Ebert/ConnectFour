@@ -30,6 +30,9 @@ using namespace glm;
 // Wuerfel und Kugel
 #include "objects.hpp"
 
+#include "objloader.hpp"
+#include "texture.hpp"
+
 #include "text2d.hpp"
 
 void error_callback(int error, const char* description)
@@ -65,13 +68,15 @@ void sendMVP()
 
 }
 
-#include "objloader.hpp"
-#include "texture.hpp"
 
 bool gameOver = false;
 bool playerWon = false;
+bool computerTurn = false;
 const int PLAYER = 1;
 const int NPC = 2;
+
+const int NPC_WAIT_TIME_IN_FRAMES = 60;
+int currentNPCWaitTime = NPC_WAIT_TIME_IN_FRAMES;
 
 const double CAMERA_MOVEMENT_SPEED = 0.05;
 
@@ -662,16 +667,26 @@ void hardNPC() {
 
 
 void computerMove() {
+	if (currentNPCWaitTime >= 0) {
+		currentNPCWaitTime--;
+		return;
+	}
+	else {
+		// reset wait time for next time 
+		currentNPCWaitTime = NPC_WAIT_TIME_IN_FRAMES;
+	}
 
 	if (difficulty == 0) {
 		easyNPC();
 	}
-	if (difficulty == 1) {
+	else if (difficulty == 1) {
 		mediumNPC();
 	}
-	if (difficulty == 2) {
+	else if (difficulty == 2) {
 		hardNPC();
 	}
+
+	computerTurn = false;
 }
 
 
@@ -741,10 +756,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(0);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(0);
 
-					computerMove();
+					computerTurn = true;
 				}
 				else if (menu) {
 					hotseat = true;
@@ -761,9 +776,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(1);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(1);
-					computerMove();
+
+					computerTurn = true;
 				}
 				else if (menu) {
 					menu = !menu;
@@ -781,9 +797,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(2);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(2);
-					computerMove();
+					computerTurn = true;
+
 				}
 				else if (menu) {
 					menu = !menu;
@@ -800,9 +817,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(3);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(3);
-					computerMove();
+					computerTurn = true;
 				}
 				else if (menu) {
 					menu = !menu;
@@ -819,9 +836,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(4);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(4);
-					computerMove();
+					computerTurn = true;
+
 				}
 				else if (menu) {
 					glfwSetWindowShouldClose(window, GL_TRUE);
@@ -836,9 +854,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(5);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(5);
-					computerMove();
+					computerTurn = true;
+
 				}
 			}
 		}
@@ -849,9 +868,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(6);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(6);
-					computerMove();
+					computerTurn = true;
+
 				}
 			}
 		}
@@ -862,9 +882,10 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				if (hotseat) {
 					hotSeat(7);
 				}
-				else if (vscomputer) {
+				else if (vscomputer && computerTurn == false) {
 					hotSeat(7);
-					computerMove();
+					computerTurn = true;
+
 				}
 			}
 		}
@@ -958,6 +979,12 @@ int main(void)
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
 	{
+		// call computermove every frame if computer has turn to count down timer
+		if (computerTurn) {
+			computerMove();
+		}
+
+
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Clear the screen
