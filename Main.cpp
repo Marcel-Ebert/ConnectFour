@@ -35,6 +35,160 @@ using namespace glm;
 
 #include "text2d.hpp"
 
+class Position {
+public:
+
+	static const int WIDTH = 8;  // Height of the board
+	static const int HEIGHT = 8; // Width of the board
+	static_assert(WIDTH < 10, "Board's width must be less than 10");
+
+	/**
+	* Indicates whether a column is playable.
+	* @param col: 0-based index of column to play
+	* @return true if the column is playable, false if the column is already full.
+	*/
+	bool canPlay(int col) const
+	{
+		return height[col] < HEIGHT;
+	}
+
+	/**
+	* Plays a playable column.
+	* This function should not be called on a non-playable column or a column making an alignment.
+	*
+	* @param col: 0-based index of a playable column.
+	*/
+	void play(int col)
+	{
+		board[col][height[col]] = 1 + moves % 2;
+		height[col]++;
+		moves++;
+	}
+
+	/*
+	* Plays a sequence of successive played columns, mainly used to initilize a board.
+	* @param seq: a sequence of digits corresponding to the 1-based index of the column played.
+	*
+	* @return number of played moves. Processing will stop at first invalid move that can be:
+	*           - invalid character (non digit, or digit >= WIDTH)
+	*           - playing a colum the is already full
+	*           - playing a column that makes an aligment (we only solve non).
+	*         Caller can check if the move sequence was valid by comparing the number of
+	*         processed moves to the length of the sequence.
+	*/
+	unsigned int play(std::string seq)
+	{
+		for (unsigned int i = 0; i < seq.size(); i++) {
+			int col = seq[i] - '1';
+			if (col < 0 || col >= Position::WIDTH || !canPlay(col) || isWinningMove(col)) return i; // invalid move
+			play(col);
+		}
+		return seq.size();
+	}
+
+	/**
+	* Indicates whether the current player wins by playing a given column.
+	* This function should never be called on a non-playable column.
+	* @param col: 0-based index of a playable column.
+	* @return true if current player makes an alignment by playing the corresponding column col.
+	*/
+	bool isWinningMove(int col) const
+	{
+		int current_player = 1 + moves % 2;
+		// check for vertical alignments
+		if (height[col] >= 3
+			&& board[col][height[col] - 1] == current_player
+			&& board[col][height[col] - 2] == current_player
+			&& board[col][height[col] - 3] == current_player)
+			return true;
+
+		for (int dy = -1; dy <= 1; dy++) {    // Iterate on horizontal (dy = 0) or two diagonal directions (dy = -1 or dy = 1).
+			int nb = 0;                       // counter of the number of stones of current player surronding the played stone in tested direction.
+			for (int dx = -1; dx <= 1; dx += 2) // count continuous stones of current player on the left, then right of the played column.
+				for (int x = col + dx, y = height[col] + dx * dy; x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT && board[x][y] == current_player; nb++) {
+					x += dx;
+					y += dx * dy;
+				}
+			if (nb >= 3) return true; // there is an aligment if at least 3 other stones of the current user 
+									  // are surronding the played stone in the tested direction.
+		}
+		return false;
+	}
+
+	/**
+	* @return number of moves played from the beginning of the game.
+	*/
+	unsigned int nbMoves() const
+	{
+		return moves;
+	}
+
+	/*
+	* Default constructor, build an empty position.
+	*/
+	Position() : board{ 0 }, height{ 0 }, moves{ 0 } {}
+
+
+
+private:
+	int board[WIDTH][HEIGHT]; // 0 if cell is empty, 1 for first player and 2 for second player.
+	int height[WIDTH];        // number of stones per column
+	unsigned int moves;       // number of moves played since the beinning of the game.
+};
+
+
+class Solver {
+private:
+	unsigned long long nodeCount; // counter of explored nodes.
+
+								  /*
+								  * Recursively solve a connect 4 position using negamax variant of min-max algorithm.
+								  * @return the score of a position:
+								  *  - 0 for a draw game
+								  *  - positive score if you can win whatever your opponent is playing. Your score is
+								  *    the number of moves before the end you can win (the faster you win, the higher your score)
+								  *  - negative score if your opponent can force you to lose. Your score is the oposite of
+								  *    the number of moves before the end you will lose (the faster you lose, the lower your score).
+								  */
+	int negamax(const Position &P) {
+		nodeCount++; // increment counter of explored nodes
+
+		if (P.nbMoves() == Position::WIDTH*Position::HEIGHT) // check for draw game
+			return 0;
+
+		for (int x = 0; x < Position::WIDTH; x++) // check if current player can win next move
+			if (P.canPlay(x) && P.isWinningMove(x))
+				return (Position::WIDTH*Position::HEIGHT + 1 - P.nbMoves()) / 2;
+
+		int bestScore = -Position::WIDTH*Position::HEIGHT; // init the best possible score with a lower bound of score.
+
+		for (int x = 0; x < Position::WIDTH; x++) // compute the score of all possible next move and keep the best one
+			if (P.canPlay(x)) {
+				Position P2(P);
+				P2.play(x);               // It's opponent turn in P2 position after current player plays x column.
+				int score = -negamax(P2); // If current player plays col x, his score will be the opposite of opponent's score after playing col x
+				if (score > bestScore) bestScore = score; // keep track of best possible score so far.
+			}
+
+		return bestScore;
+	}
+
+public:
+
+	int solve(const Position &P)
+	{
+		nodeCount = 0;
+		return negamax(P);
+	}
+
+	unsigned long long getNodeCount()
+	{
+		return nodeCount;
+	}
+
+};
+
+
 void error_callback(int error, const char* description)
 {
 	fputs(description, stderr); // gibt string aus (in dem Fall auf Konsole)
@@ -385,6 +539,15 @@ bool isBoardFullCheck() {
 	}
 	return false;
 }
+int totalMovesCopy = 0;
+
+//return true if board is full
+bool isCopyBoardFullCheck() {
+	if (totalMovesCopy == BOARD_SIZE * BOARD_SIZE) {
+		return true;
+	}
+	return false;
+}
 
 // return die row die den nächsten freien spot hat. Falls in der column die unteren 3 steine gespielt sind(also 7 6 und 5) return 4. return -1 falls column voll.
 int checkDepth(int column) {
@@ -419,16 +582,6 @@ bool isWinningMove(int column, int player) {
 
 	}
 	return false;
-
-}
-
-bool hasWonCopy(int player) {
-	if (hasDiagonalWinCopy(player) && hasHorizontalWinCopy(player) && hasVerticalWinCopy(player)) {
-		return true;
-	}
-	else {
-		return false;
-	}
 
 }
 
@@ -481,6 +634,16 @@ bool hasVerticalWinCopy(int P) {
 	return false;
 }
 
+bool hasWonCopy(int player) {
+	if (hasDiagonalWinCopy(player) || hasHorizontalWinCopy(player) || hasVerticalWinCopy(player)) {
+		return true;
+	}
+	else {
+		return false;
+	}
+
+}
+
 
 //play a chip for a player in a given column on the first free space in that column
 bool playChip(int column, int player) {
@@ -521,7 +684,6 @@ bool playChip(int column, int player) {
 	else { return false; }
 }
 
-int totalMovesCopy = 0;
 void copyTotalMoves() {
 	totalMovesCopy = totalMoves;
 }
@@ -562,136 +724,72 @@ int checkCopy(int column) {
 	return -1;
 }
 
-int negamax(Position p, int  depth) {
-	int  best = -INFINITY;
-	if (endPosition(p) || depth <= 0)
-		return  evaluate(p);
-
-	//Move[]  moves = generateMoves(p);
-	for (int i = 0; i < BOARD_SIZE; i++) {
-		//makeMove(p, moves[i]);
-		int value = -negamax(p, depth - 1);
-		// undoMove(p, moves[i]);
-		if (value > best)
-			best = value;
-	}
-	return  best;
-}
-
-
-int negamax(int depth) {
-	int  best = -INFINITY;
-	if (isBoardFullCheck() || depth <= 0)
-		return  evaluate(p);
-
-	//Move[]  moves = generateMoves(p);
-	for (int i = 0; i < BOARD_SIZE; i++) {
-		//makeMove(p, moves[i]);
-		int value = -negamax(p, depth - 1);
-		// undoMove(p, moves[i]);
-		if (value > best)
-			best = value;
-	}
-	return  best;
-}
-
 int evaluateCopy() {
 	int score = 0;
 
 	// very good move for computer
-	if (hasWon(mySeed)) {
-		return Integer.MAX_VALUE;
+	if (hasWonCopy(NPC)) {
+		return 9999;
 	}
 
 	// very bad move, player wins!
-	if (hasWon(oppSeed)) {
-		return -Integer.MIN_VALUE;
+	if (hasWonCopy(PLAYER)) {
+		return -9999;
 	}
 
 	// counts open 3 in a row for the computer and the player
-	int myThree = openThree(mySeed);
-	int oppThree = openThree(oppSeed);
+	//int myThree = openThree(mySeed);
+	// int oppThree = openThree(oppSeed);
 
-	score = myThree - oppThree; // if negative, player advantage, otherwise computer advantage
+	//score = myThree - oppThree; // if negative, player advantage, otherwise computer advantage
 
 	return score;
 }
 
-int[] minmax(int depth, Seed player) {
-	// Generate possible next moves in a List of int[2] of {row, col}.
-	List<int[]> nextMoves = generateMoves();
 
-	// mySeed is maximizing; while oppSeed is minimizing
-	int bestScore = (player == mySeed) ? Integer.MIN_VALUE : Integer.MAX_VALUE;
-	int currentScore;
-	int bestRow = -1;
-	int bestCol = -1;
-
-	if (nextMoves.isEmpty() || depth == 0) {
-		// Gameover or depth reached, evaluate score
-		bestScore = evaluate();
-	}
-	else {
-		for (int[] move : nextMoves) {
-			// Try this move for the current "player"
-			cells[move[0]][move[1]].setContent(player);
-			if (player == mySeed) { // mySeed (computer) is maximizing player
-				currentScore = minmax(depth - 1, oppSeed)[0];
-				if (currentScore > bestScore) {
-					bestScore = currentScore;
-					bestRow = move[0];
-					bestCol = move[1];
-				}
-			}
-			else { // oppSeed is minimizing player
-				currentScore = minmax(depth - 1, mySeed)[0];
-				if (currentScore < bestScore) {
-					bestScore = currentScore;
-					bestRow = move[0];
-					bestCol = move[1];
-				}
-			}
-			// Undo move
-			cells[move[0]][move[1]].setContent(Seed.EMPTY);
+void printCopyBoardToConsole() {
+	std::cout << "NEW BOARD" << std::endl;
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		for (int j = 0; j < BOARD_SIZE; j++) {
+			std::cout << boardArrayCopy[j][i] << ",";
 		}
+		std::cout << std::endl;
 	}
-	return new int[] { bestScore, bestRow, bestCol };
+	
+	std::cout << "END BOARD" << std::endl;
+
 }
 
-/**
-* Find all valid next moves. Return List of moves in int[2] of {row, col}
-* or empty list if gameover
-*/
-List<int[]> generateMoves() {
-	List<int[]> nextMoves = new ArrayList<int[]>(); // allocate List
 
-	boolean[] columns = { false,false,false,false,false,false,false };
-
-	// If gameover, i.e., no next move
-	if (hasWon(mySeed) || hasWon(oppSeed)) {
-		return nextMoves; // return empty list
-	}
-
-	// Search for possible moves and add to the List
-	for (int row = GameMain.ROWS - 1; row >= 0; row--) {
-		for (int col = 0; col < GameMain.COLS; col++) {
-			if (columns[col] == false && cells[row][col].getContent() == Seed.EMPTY) {
-				columns[col] = true;
-				nextMoves.add(new int[] { row, col });
-			}
+int negamax(int depth, int player) {
+	int  best = -INFINITY;
+	if (isCopyBoardFullCheck() || depth <= 0) {
+		if (evaluateCopy() >= 0) {
+			std::cout << evaluateCopy();
+			printCopyBoardToConsole();
 		}
+		return evaluateCopy();
 	}
+		
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		playChipCopy(i, player);
+		int value = 0;
+		if (player == PLAYER)
+			value = -negamax(depth - 1, NPC);
+		else
+			value = -negamax(depth - 1, PLAYER);
+		removeChipCopy(i);
 
-	return nextMoves;
+		if (value > best)
+			best = value;
+	}
+	return best;
 }
+
 
 //hotseat, return true if move succesful, false otherwise
-
 bool hotSeat(int column) {
-
 	return playChip(column, getCurrentplayer());
-
-
 }
 //modes; current mode = true, rest false; for more info look at key callback
 bool hotseat = false;
@@ -730,7 +828,22 @@ void mediumNPC() {
 }
 void hardNPC() {
 	copyTheBoard();
-	negamax(0, 2, 1);
+
+	int bestColumn = -1;
+	int highestScore = -999;
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		playChipCopy(i, NPC);
+		int score = negamax(4, NPC);
+		removeChipCopy(i);
+
+		if (score > highestScore) {
+			highestScore = score;
+			std::cout << "Neuer Highest score: " << highestScore << "in column: " << i;
+			bestColumn = i;
+		}
+	}
+
+	playChip(bestColumn, NPC);
 }
 
 
