@@ -416,92 +416,71 @@ bool isWinningMove(int column, int player) {
 	if (depth != -1) {
 		boardArrayCopy[column][depth] = player;
 
-		int counter = 0;
-		//check senkrecht
 
-		for (int i = 0; i < BOARD_SIZE; i++) {
-			if (boardArrayCopy[column][i] == player) {
-				counter++;
-				if (counter == 4) {
-
-					return true;
-				}
-			}
-			else {
-				counter = 0;
-			}
-		}
-		counter = 0;
-		//check waagrecht
-
-		for (int i = 0; i < BOARD_SIZE; i++) {
-			if (boardArrayCopy[i][depth] == player) {
-				counter++;
-				if (counter == 4) {
-					return true;
-				}
-			}
-			else {
-				counter = 0;
-			}
-		}
-		counter = 0;
-
-		//check horizontal
-		//von oben links nach unten rechts
-
-		int startrow = BOARD_SIZE - 1 - column + depth;
-		int startcolumn = BOARD_SIZE - 1;
-		while (startrow > BOARD_SIZE - 1) {
-			startrow--;
-			startcolumn--;
-		}
-		for (int i = 0; i < BOARD_SIZE; i++) {
-			if (startrow >= 0 && startcolumn >= 0) {
-				if (boardArrayCopy[startcolumn][startrow] == player) {
-					counter++;
-					if (counter == 4) {
-						return true;
-					}
-				}
-				else {
-					counter = 0;
-				}
-			}
-			startrow--;
-			startcolumn--;
-		}
-		counter = 0;
-
-
-		//check horizontal
-		//von oben rechts nach unten links
-
-		startrow = depth + column;
-		startcolumn = 0;
-		while (startrow > BOARD_SIZE - 1) {
-			startrow--;
-			startcolumn++;
-		}
-		for (int i = 0; i < BOARD_SIZE; i++) {
-			if (startrow >= 0 && startcolumn < BOARD_SIZE) {
-				if (boardArrayCopy[startcolumn][startrow] == player) {
-					counter++;
-					if (counter == 4) {
-						return true;
-					}
-				}
-				else {
-					counter = 0;
-				}
-			}
-			startrow--;
-			startcolumn++;
-		}
 	}
 	return false;
 
 }
+
+bool hasWonCopy(int player) {
+	if (hasDiagonalWinCopy(player) && hasHorizontalWinCopy(player) && hasVerticalWinCopy(player)) {
+		return true;
+	}
+	else {
+		return false;
+	}
+
+}
+
+bool hasDiagonalWinCopy(int P) {
+	int directions[4][2] = { { 1,0 },{ 1,-1 },{ 1,1 },{ 0,1 } };
+	for (int i = 0; i < 4; i++) {
+		int dx = directions[i][0];
+		int dy = directions[i][1];
+		for (int x = 0; x < BOARD_SIZE; x++) {
+			for (int y = 0; y < BOARD_SIZE; y++) {
+				int lastx = x + 3 * dx;
+				int lasty = y + 3 * dy;
+				if (0 <= lastx && lastx < BOARD_SIZE && 0 <= lasty && lasty < BOARD_SIZE) {
+					int w = P;
+					if (w != 0 && w == boardArrayCopy[x + dx][y + dy]
+						&& w == boardArrayCopy[x + 2 * dx][y + 2 * dy]
+						&& w == boardArrayCopy[lastx][lasty]) {
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false; // no winner
+}
+
+bool hasHorizontalWinCopy(int P) {
+	for (int row = 0; row < BOARD_SIZE; row++) {
+		for (int col = 0; col < BOARD_SIZE - 4; col++) {
+			bool isWin = true;
+			for (int i = 0; i < 4 && isWin; i++) {
+				isWin = (boardArrayCopy[row][col + i] == P);
+			}
+			if (isWin) { return true; }
+		}
+	}
+	return false;
+}
+
+bool hasVerticalWinCopy(int P) {
+	for (int col = 0; col < BOARD_SIZE; col++) {
+		for (int row = 0; row < BOARD_SIZE - 4; row++) {
+			bool isWin = true;
+			for (int i = 0; i < 4 && isWin; i++) {
+				isWin = (boardArrayCopy[row + i][col] == P);
+			}
+			if (isWin) { return true; }
+		}
+	}
+	return false;
+}
+
 
 //play a chip for a player in a given column on the first free space in that column
 bool playChip(int column, int player) {
@@ -540,7 +519,6 @@ bool playChip(int column, int player) {
 		return false;
 	}
 	else { return false; }
-
 }
 
 int totalMovesCopy = 0;
@@ -548,33 +526,32 @@ void copyTotalMoves() {
 	totalMovesCopy = totalMoves;
 }
 //playchip but for the copy board to calculate for the pc
-bool playCopy(int column, int player) {
+bool playChipCopy(int column, int player) {
 	int depth = checkDepth(column);
 	if (depth != -1) {
-
-
-
 		if (player == 1) {
-
 			boardArrayCopy[column][depth] = 1;
-
 			totalMovesCopy++;
 			return true;
 		}
 		else {
-
 			boardArrayCopy[column][depth] = 2;
-
 			totalMovesCopy++;
 			return true;
 		}
-
-
 		return false;
 	}
 	else { return false; }
-
 }
+
+//playchip but for the copy board to calculate for the pc
+void removeChipCopy(int column) {
+	int depth = checkDepth(column);
+
+	boardArrayCopy[column][depth - 1] = 0;
+	totalMovesCopy--;
+}
+
 //checkdepth but for copy
 int checkCopy(int column) {
 	for (int i = BOARD_SIZE - 1; i >= 0; i--) {
@@ -584,38 +561,130 @@ int checkCopy(int column) {
 	}
 	return -1;
 }
-//how does this work? it doesnt
-int negamax(int column, int player, int counter) {
 
+int negamax(Position p, int  depth) {
+	int  best = -INFINITY;
+	if (endPosition(p) || depth <= 0)
+		return  evaluate(p);
+
+	//Move[]  moves = generateMoves(p);
 	for (int i = 0; i < BOARD_SIZE; i++) {
-		if (checkCopy(column) != -1 && isWinningMove(column, player)) {//falls nächster move gewinnt 
-			return (BOARD_SIZE*BOARD_SIZE + 1 - totalMovesCopy) / 2;
+		//makeMove(p, moves[i]);
+		int value = -negamax(p, depth - 1);
+		// undoMove(p, moves[i]);
+		if (value > best)
+			best = value;
+	}
+	return  best;
+}
+
+
+int negamax(int depth) {
+	int  best = -INFINITY;
+	if (isBoardFullCheck() || depth <= 0)
+		return  evaluate(p);
+
+	//Move[]  moves = generateMoves(p);
+	for (int i = 0; i < BOARD_SIZE; i++) {
+		//makeMove(p, moves[i]);
+		int value = -negamax(p, depth - 1);
+		// undoMove(p, moves[i]);
+		if (value > best)
+			best = value;
+	}
+	return  best;
+}
+
+int evaluateCopy() {
+	int score = 0;
+
+	// very good move for computer
+	if (hasWon(mySeed)) {
+		return Integer.MAX_VALUE;
+	}
+
+	// very bad move, player wins!
+	if (hasWon(oppSeed)) {
+		return -Integer.MIN_VALUE;
+	}
+
+	// counts open 3 in a row for the computer and the player
+	int myThree = openThree(mySeed);
+	int oppThree = openThree(oppSeed);
+
+	score = myThree - oppThree; // if negative, player advantage, otherwise computer advantage
+
+	return score;
+}
+
+int[] minmax(int depth, Seed player) {
+	// Generate possible next moves in a List of int[2] of {row, col}.
+	List<int[]> nextMoves = generateMoves();
+
+	// mySeed is maximizing; while oppSeed is minimizing
+	int bestScore = (player == mySeed) ? Integer.MIN_VALUE : Integer.MAX_VALUE;
+	int currentScore;
+	int bestRow = -1;
+	int bestCol = -1;
+
+	if (nextMoves.isEmpty() || depth == 0) {
+		// Gameover or depth reached, evaluate score
+		bestScore = evaluate();
+	}
+	else {
+		for (int[] move : nextMoves) {
+			// Try this move for the current "player"
+			cells[move[0]][move[1]].setContent(player);
+			if (player == mySeed) { // mySeed (computer) is maximizing player
+				currentScore = minmax(depth - 1, oppSeed)[0];
+				if (currentScore > bestScore) {
+					bestScore = currentScore;
+					bestRow = move[0];
+					bestCol = move[1];
+				}
+			}
+			else { // oppSeed is minimizing player
+				currentScore = minmax(depth - 1, mySeed)[0];
+				if (currentScore < bestScore) {
+					bestScore = currentScore;
+					bestRow = move[0];
+					bestCol = move[1];
+				}
+			}
+			// Undo move
+			cells[move[0]][move[1]].setContent(Seed.EMPTY);
 		}
 	}
-	int maxScore = -BOARD_SIZE * BOARD_SIZE;
-	if (counter > 0) {
-		for (int i = 0; i < BOARD_SIZE; i++) {
-			if (checkCopy(column) != -1) {
-				playCopy(i, player);
-				if (player == 1) { player = 2; }
-				else { player = 1; }
-				int score = -negamax(i, player, counter - 1);
+	return new int[] { bestScore, bestRow, bestCol };
+}
 
-				if (score > maxScore) {
-					maxScore = score;
-				}
+/**
+* Find all valid next moves. Return List of moves in int[2] of {row, col}
+* or empty list if gameover
+*/
+List<int[]> generateMoves() {
+	List<int[]> nextMoves = new ArrayList<int[]>(); // allocate List
+
+	boolean[] columns = { false,false,false,false,false,false,false };
+
+	// If gameover, i.e., no next move
+	if (hasWon(mySeed) || hasWon(oppSeed)) {
+		return nextMoves; // return empty list
+	}
+
+	// Search for possible moves and add to the List
+	for (int row = GameMain.ROWS - 1; row >= 0; row--) {
+		for (int col = 0; col < GameMain.COLS; col++) {
+			if (columns[col] == false && cells[row][col].getContent() == Seed.EMPTY) {
+				columns[col] = true;
+				nextMoves.add(new int[] { row, col });
 			}
 		}
 	}
-	if (counter == 0) {
-		copyTheBoard();
-		copyTotalMoves();
-		std::cout << "i cleared the board" << std::endl;
-		return maxScore;
-	}
 
-
+	return nextMoves;
 }
+
 //hotseat, return true if move succesful, false otherwise
 
 bool hotSeat(int column) {
