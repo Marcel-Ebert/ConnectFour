@@ -169,9 +169,6 @@ void drawBoard() {
 	glm::mat4 Save = Model;
 
 	Model = glm::translate(Model, glm::vec3(8, 0, 8));
-	Model = glm::rotate(Model, anglex, glm::vec3(1, 0, 0));
-	Model = glm::rotate(Model, angley, glm::vec3(0, 1, 0));
-	Model = glm::rotate(Model, anglez, glm::vec3(0, 0, 1));
 	sendMVP();
 	Model = Save;
 
@@ -304,12 +301,12 @@ void loadBoardToMemory() {
 		&boardVertices[0],
 		GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0); 
+	glEnableVertexAttribArray(0);
 	glVertexAttribPointer(0,
 		3,
 		GL_FLOAT,
 		GL_FALSE,
-		0, 
+		0,
 		(void*)0);
 
 	glGenBuffers(1, &normalBuffer);
@@ -334,18 +331,18 @@ void loadChipToMemory() {
 	glGenVertexArrays(1, &VertexArrayIDChip);
 	glBindVertexArray(VertexArrayIDChip);
 
-	glGenBuffers(1, &vertexBuffer); 
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); 
+	glGenBuffers(1, &vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3),
 		&chipVertices[0],
 		GL_STATIC_DRAW);
 
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 
+	glVertexAttribPointer(0,
 		3,
 		GL_FLOAT,
 		GL_FALSE,
-		0, 
+		0,
 		(void*)0);
 
 	glGenBuffers(1, &normalBuffer);
@@ -589,7 +586,7 @@ void computerMove() {
 	else if (difficulty == 1) {
 		mediumNPC();
 	}
-	
+
 	computerTurn = false;
 }
 
@@ -660,9 +657,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(0);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(0);
-
-					computerTurn = true;
+					if (hotSeat(0)) {
+						computerTurn = true;
+					}
 				}
 				else if (menu) {
 					hotseat = true;
@@ -680,9 +677,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(1);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(1);
-
-					computerTurn = true;
+					if (hotSeat(1)) {
+						computerTurn = true;
+					}
 				}
 				else if (menu) {
 					menu = !menu;
@@ -701,9 +698,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(2);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(2);
-					computerTurn = true;
-
+					if (hotSeat(2)) {
+						computerTurn = true;
+					}
 				}
 				else if (menu) {
 					menu = !menu;
@@ -721,8 +718,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(3);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(3);
-					computerTurn = true;
+					if (hotSeat(3)) {
+						computerTurn = true;
+					}
 				}
 			}
 		}
@@ -734,8 +732,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(4);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(4);
-					computerTurn = true;
+					if (hotSeat(4)) {
+						computerTurn = true;
+					}
 
 				}
 				else if (menu) {
@@ -752,9 +751,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(5);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(5);
-					computerTurn = true;
-
+					if (hotSeat(5)) {
+						computerTurn = true;
+					}
 				}
 			}
 		}
@@ -766,9 +765,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(6);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(6);
-					computerTurn = true;
-
+					if (hotSeat(6)) {
+						computerTurn = true;
+					}
 				}
 			}
 		}
@@ -780,9 +779,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					hotSeat(7);
 				}
 				else if (vscomputer && computerTurn == false) {
-					hotSeat(7);
-					computerTurn = true;
-
+					if (hotSeat(7)) {
+						computerTurn = true;
+					}
 				}
 			}
 		}
@@ -903,6 +902,11 @@ int main(void)
 		Model = glm::mat4(1.0f);
 
 		Model = glm::rotate(Model, 15.0f, glm::vec3(1, 0, 0));
+
+		Model = glm::rotate(Model, anglex, glm::vec3(1, 0, 0));
+		Model = glm::rotate(Model, angley, glm::vec3(0, 1, 0));
+		Model = glm::rotate(Model, anglez, glm::vec3(0, 0, 1));
+
 
 		glm::mat4 Save = Model;
 
