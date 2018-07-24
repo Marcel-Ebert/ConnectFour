@@ -586,6 +586,9 @@ void computerMove() {
 	else if (difficulty == 1) {
 		mediumNPC();
 	}
+	else if (difficulty == 2) {
+		mediumNPC();
+	}
 
 	computerTurn = false;
 }
@@ -618,6 +621,7 @@ void drawGameInfoText() {
 		printText2D("1. Hotseat", 50, 430, 35);
 		printText2D("2. vs easy NPC", 50, 330, 35);
 		printText2D("3. vs medium NPC", 50, 230, 35);
+		printText2D("4. vs hard NPC", 50, 130, 35);
 		printText2D("5. Quit", 50, 30, 35);
 
 	}
@@ -629,6 +633,13 @@ void drawGameInfoText() {
 
 		if (vscomputer) {
 			printText2D("NPC", 500, 550, 40);
+
+			if (difficulty == 0) {
+				printText2D("(easy)", 640, 555, 20);
+			} 
+			else if (difficulty == 1) {
+				printText2D("(medium)", 640, 555, 20);
+			}
 		}
 		else {
 			printText2D("Player2", 500, 550, 40);
@@ -721,6 +732,12 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 					if (hotSeat(3)) {
 						computerTurn = true;
 					}
+				}
+				else if (menu) {
+					menu = !menu;
+					hotseat = false;
+					vscomputer = true;
+					difficulty = 1;
 				}
 			}
 		}
