@@ -3,16 +3,8 @@
 #include <stdlib.h>
 #include <vector>
 
-// TODO kleiner delay bevor gegner setzt
-// Bug: Spiel beendet nicht richtig
-
 //for console output
 #include <iostream>
-//for delay
-#include <chrono>
-#include <thread>
-//std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
 // Include GLEW
 #include <GL/glew.h>
 
@@ -35,202 +27,22 @@ using namespace glm;
 
 #include "text2d.hpp"
 
-class Position {
-public:
-
-	static const int WIDTH = 8;  // Height of the board
-	static const int HEIGHT = 8; // Width of the board
-	static_assert(WIDTH < 10, "Board's width must be less than 10");
-
-	/**
-	* Indicates whether a column is playable.
-	* @param col: 0-based index of column to play
-	* @return true if the column is playable, false if the column is already full.
-	*/
-	bool canPlay(int col) const
-	{
-		return height[col] < HEIGHT;
-	}
-
-	/**
-	* Plays a playable column.
-	* This function should not be called on a non-playable column or a column making an alignment.
-	*
-	* @param col: 0-based index of a playable column.
-	*/
-	void play(int col)
-	{
-		board[col][height[col]] = 1 + moves % 2;
-		height[col]++;
-		moves++;
-	}
-
-	/*
-	* Plays a sequence of successive played columns, mainly used to initilize a board.
-	* @param seq: a sequence of digits corresponding to the 1-based index of the column played.
-	*
-	* @return number of played moves. Processing will stop at first invalid move that can be:
-	*           - invalid character (non digit, or digit >= WIDTH)
-	*           - playing a colum the is already full
-	*           - playing a column that makes an aligment (we only solve non).
-	*         Caller can check if the move sequence was valid by comparing the number of
-	*         processed moves to the length of the sequence.
-	*/
-	unsigned int play(std::string seq)
-	{
-		for (unsigned int i = 0; i < seq.size(); i++) {
-			int col = seq[i] - '1';
-			if (col < 0 || col >= Position::WIDTH || !canPlay(col) || isWinningMove(col)) return i; // invalid move
-			play(col);
-		}
-		return seq.size();
-	}
-
-	/**
-	* Indicates whether the current player wins by playing a given column.
-	* This function should never be called on a non-playable column.
-	* @param col: 0-based index of a playable column.
-	* @return true if current player makes an alignment by playing the corresponding column col.
-	*/
-	bool isWinningMove(int col) const
-	{
-		int current_player = 1 + moves % 2;
-		// check for vertical alignments
-		if (height[col] >= 3
-			&& board[col][height[col] - 1] == current_player
-			&& board[col][height[col] - 2] == current_player
-			&& board[col][height[col] - 3] == current_player)
-			return true;
-
-		for (int dy = -1; dy <= 1; dy++) {    // Iterate on horizontal (dy = 0) or two diagonal directions (dy = -1 or dy = 1).
-			int nb = 0;                       // counter of the number of stones of current player surronding the played stone in tested direction.
-			for (int dx = -1; dx <= 1; dx += 2) // count continuous stones of current player on the left, then right of the played column.
-				for (int x = col + dx, y = height[col] + dx * dy; x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT && board[x][y] == current_player; nb++) {
-					x += dx;
-					y += dx * dy;
-				}
-			if (nb >= 3) return true; // there is an aligment if at least 3 other stones of the current user 
-									  // are surronding the played stone in the tested direction.
-		}
-		return false;
-	}
-
-	/**
-	* @return number of moves played from the beginning of the game.
-	*/
-	unsigned int nbMoves() const
-	{
-		return moves;
-	}
-
-	/*
-	* Default constructor, build an empty position.
-	*/
-	Position() : board{ 0 }, height{ 0 }, moves{ 0 } {}
-
-
-
-private:
-	int board[WIDTH][HEIGHT]; // 0 if cell is empty, 1 for first player and 2 for second player.
-	int height[WIDTH];        // number of stones per column
-	unsigned int moves;       // number of moves played since the beinning of the game.
-};
-
-
-class Solver {
-private:
-	unsigned long long nodeCount; // counter of explored nodes.
-
-								  /*
-								  * Recursively solve a connect 4 position using negamax variant of min-max algorithm.
-								  * @return the score of a position:
-								  *  - 0 for a draw game
-								  *  - positive score if you can win whatever your opponent is playing. Your score is
-								  *    the number of moves before the end you can win (the faster you win, the higher your score)
-								  *  - negative score if your opponent can force you to lose. Your score is the oposite of
-								  *    the number of moves before the end you will lose (the faster you lose, the lower your score).
-								  */
-	int negamax(const Position &P) {
-		nodeCount++; // increment counter of explored nodes
-
-		if (P.nbMoves() == Position::WIDTH*Position::HEIGHT) // check for draw game
-			return 0;
-
-		for (int x = 0; x < Position::WIDTH; x++) // check if current player can win next move
-			if (P.canPlay(x) && P.isWinningMove(x))
-				return (Position::WIDTH*Position::HEIGHT + 1 - P.nbMoves()) / 2;
-
-		int bestScore = -Position::WIDTH*Position::HEIGHT; // init the best possible score with a lower bound of score.
-
-		for (int x = 0; x < Position::WIDTH; x++) // compute the score of all possible next move and keep the best one
-			if (P.canPlay(x)) {
-				Position P2(P);
-				P2.play(x);               // It's opponent turn in P2 position after current player plays x column.
-				int score = -negamax(P2); // If current player plays col x, his score will be the opposite of opponent's score after playing col x
-				if (score > bestScore) bestScore = score; // keep track of best possible score so far.
-			}
-
-		return bestScore;
-	}
-
-public:
-
-	int solve(const Position &P)
-	{
-		nodeCount = 0;
-		return negamax(P);
-	}
-
-	unsigned long long getNodeCount()
-	{
-		return nodeCount;
-	}
-
-};
-
-
-void error_callback(int error, const char* description)
-{
-	fputs(description, stderr); // gibt string aus (in dem Fall auf Konsole)
-}
-float anglex = 0;
-float angley = 0;
-float anglez = 0;
-float camangle = 17; //17 to remove board from view
-
-
-
-
-					 // Diese Drei Matrizen global (Singleton-Muster), damit sie jederzeit modifiziert und
-					 // an die Grafikkarte geschickt werden koennen
-glm::mat4 Projection; //Bildschirm
-glm::mat4 View; // Position+Rotation(+Skalierung) der Kamera in 3d-Raum
-glm::mat4 Model; // Transformationsmatrix für Objekte
-GLuint programID;
-
-void sendMVP()
-{
-	// Our ModelViewProjection : multiplication of our 3 matrices
-	glm::mat4 MVP = Projection * View * Model;
-	// Send our transformation to the currently bound shader, 
-	// in the "MVP" uniform, konstant fuer alle Eckpunkte
-	glUniformMatrix4fv(glGetUniformLocation(programID, "MVP"), 1, GL_FALSE, &MVP[0][0]);
-
-	glUniformMatrix4fv(glGetUniformLocation(programID, "M"), 1, GL_FALSE, &Model[0][0]);
-	glUniformMatrix4fv(glGetUniformLocation(programID, "V"), 1, GL_FALSE, &View[0][0]);
-	glUniformMatrix4fv(glGetUniformLocation(programID, "P"), 1, GL_FALSE, &Projection[0][0]);
-
-}
-
-
 bool gameOver = false;
 bool playerWon = false;
 bool computerTurn = false;
 const int PLAYER = 1;
 const int NPC = 2;
 
-const int NPC_WAIT_TIME_IN_FRAMES = 60;
-int currentNPCWaitTime = NPC_WAIT_TIME_IN_FRAMES;
+// entweder hotseat oder vscomputer ist true nach auswahl der spiels im menu
+bool hotseat = false;
+bool vscomputer = false;
+
+bool menu = true; // menu am anfang anzeigen
+
+int difficulty = 0; //schwierigkeitsgrad von computer gegner. 0= random moves,1=plays winning moves, playes against winning player moves, otherwise random
+
+const int NPC_WAIT_TIME_IN_FRAMES = 60; // Anzahl der Frames die von NPC geskipped werden um denken zu simulieren
+int currentNPCWaitTime = NPC_WAIT_TIME_IN_FRAMES; // wird runtergezaehlt
 
 const double CAMERA_MOVEMENT_SPEED = 0.05;
 
@@ -238,11 +50,24 @@ const int BOARD_SIZE = 8;
 int boardArray[BOARD_SIZE][BOARD_SIZE];
 float boardChipZPositionArray[BOARD_SIZE][BOARD_SIZE];
 
-//save cordinates of last move
+// kopie des brettes für kalkulationen für den bot
+int boardArrayCopy[BOARD_SIZE][BOARD_SIZE];
+
+// koordinaten vom letzten move
 int lastMoveColumn = -1;
 int lastMoveRow = -1;
 //number of moves
 int totalMoves = 0;
+
+float anglex = 0;
+float angley = 0;
+float anglez = 0;
+float camangle = 17; //17 damit board nicht mehr zu sehen ist (wenn menu zu sehen ist)
+
+glm::mat4 Projection; //Bildschirm
+glm::mat4 View; // Position+Rotation(+Skalierung) der Kamera in 3d-Raum
+glm::mat4 Model; // Transformationsmatrix für Objekte
+GLuint programID;
 
 GLuint VertexArrayIDBoard;
 GLuint VertexArrayIDChip;
@@ -264,6 +89,26 @@ GLuint textureBuffer;
 
 
 
+void error_callback(int error, const char* description)
+{
+	fputs(description, stderr);
+}
+
+void sendMVP()
+{
+	// Our ModelViewProjection : multiplication of our 3 matrices
+	glm::mat4 MVP = Projection * View * Model;
+	// Send our transformation to the currently bound shader, 
+	// in the "MVP" uniform, konstant fuer alle Eckpunkte
+	glUniformMatrix4fv(glGetUniformLocation(programID, "MVP"), 1, GL_FALSE, &MVP[0][0]);
+
+	glUniformMatrix4fv(glGetUniformLocation(programID, "M"), 1, GL_FALSE, &Model[0][0]);
+	glUniformMatrix4fv(glGetUniformLocation(programID, "V"), 1, GL_FALSE, &View[0][0]);
+	glUniformMatrix4fv(glGetUniformLocation(programID, "P"), 1, GL_FALSE, &Projection[0][0]);
+
+}
+
+
 glm::vec3 getChipTargetPosition(int i, int j) {
 	return glm::vec3(1 + i * 2, 0, 1 + j * 2);
 }
@@ -278,29 +123,29 @@ void drawChip(glm::vec3 position, bool player, GLsizei arraysize) {
 	Model = glm::translate(Model, position);
 	sendMVP();
 
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
-	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3),
 		&chipVertices[0],
-		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+		GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
-	glVertexAttribPointer(0, // Position in shader
-		3, // Datenformat (3 Werte)
-		GL_FLOAT, // Typ
-		GL_FALSE, // normalisiert?
-		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
-		(void*)0); // kann beliebigen Datentyp annehmen
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0,
+		3,
+		GL_FLOAT,
+		GL_FALSE,
+		0,
+		(void*)0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chipNormals.size() * sizeof(glm::vec3), &chipNormals[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chipUvs.size() * sizeof(glm::vec2), &chipUvs[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 
@@ -332,31 +177,31 @@ void drawBoard() {
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, woodTexture);
-	glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0); // 1 integer wert
+	glUniform1i(glGetUniformLocation(programID, "myTextureSampler"), 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
-	glBufferData(GL_ARRAY_BUFFER, boardVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, boardVertices.size() * sizeof(glm::vec3),
 		&boardVertices[0],
-		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+		GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
-	glVertexAttribPointer(0, // Position in shader
-		3, // Datenformat (3 Werte)
-		GL_FLOAT, // Typ
-		GL_FALSE, // normalisiert?
-		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
-		(void*)0); // kann beliebigen Datentyp annehmen
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0,
+		3,
+		GL_FLOAT,
+		GL_FALSE,
+		0,
+		(void*)0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
 	glBufferData(GL_ARRAY_BUFFER, boardNormals.size() * sizeof(glm::vec3), &boardNormals[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, boardUVs.size() * sizeof(glm::vec2), &boardUVs[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glBindVertexArray(VertexArrayIDBoard);
@@ -450,35 +295,35 @@ void restartGame() {
 void loadBoardToMemory() {
 	bool res = loadOBJ("ConnectFourBoard.obj", boardVertices, boardUVs, boardNormals);
 
-	glGenVertexArrays(1, &VertexArrayIDBoard); // id wird an ein in methode erstelltes vbo object zugewiesen
-	glBindVertexArray(VertexArrayIDBoard); // id wird an Objekt gebunden
+	glGenVertexArrays(1, &VertexArrayIDBoard);
+	glBindVertexArray(VertexArrayIDBoard);
 
-	glGenBuffers(1, &vertexBuffer); // vbo bekommt buffer zugewiesen
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
-	glBufferData(GL_ARRAY_BUFFER, boardVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+	glGenBuffers(1, &vertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, boardVertices.size() * sizeof(glm::vec3),
 		&boardVertices[0],
-		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+		GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
-	glVertexAttribPointer(0, // Position in shader
-		3, // Datenformat (3 Werte)
-		GL_FLOAT, // Typ
-		GL_FALSE, // normalisiert?
-		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
-		(void*)0); // kann beliebigen Datentyp annehmen
+	glEnableVertexAttribArray(0); 
+	glVertexAttribPointer(0,
+		3,
+		GL_FLOAT,
+		GL_FALSE,
+		0, 
+		(void*)0);
 
 	glGenBuffers(1, &normalBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
 	glBufferData(GL_ARRAY_BUFFER, boardNormals.size() * sizeof(glm::vec3), &boardNormals[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glGenBuffers(1, &textureBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, boardUVs.size() * sizeof(glm::vec2), &boardUVs[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 }
@@ -486,41 +331,41 @@ void loadBoardToMemory() {
 
 void loadChipToMemory() {
 	bool res = loadOBJ("Chip.obj", chipVertices, chipUvs, chipNormals);
-	glGenVertexArrays(1, &VertexArrayIDChip); // id wird an ein in methode erstelltes vbo object zugewiesen
-	glBindVertexArray(VertexArrayIDChip); // id wird an Objekt gebunden
+	glGenVertexArrays(1, &VertexArrayIDChip);
+	glBindVertexArray(VertexArrayIDChip);
 
-	glGenBuffers(1, &vertexBuffer); // vbo bekommt buffer zugewiesen
-	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); // buffer von typ arraybuffer wird gebunden
-	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3), // groesse des Buffers in Byte
+	glGenBuffers(1, &vertexBuffer); 
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); 
+	glBufferData(GL_ARRAY_BUFFER, chipVertices.size() * sizeof(glm::vec3),
 		&chipVertices[0],
-		GL_STATIC_DRAW); //kein dynamischer Inhalt - statisch gezeichnet
+		GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(0); // 0 ist Standard -> Position in meisten Shadern
-	glVertexAttribPointer(0, // Position in shader
-		3, // Datenformat (3 Werte)
-		GL_FLOAT, // Typ
-		GL_FALSE, // normalisiert?
-		0, // sind Punkte direkt hintereinander gespeichert? ja-0 
-		(void*)0); // kann beliebigen Datentyp annehmen
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 
+		3,
+		GL_FLOAT,
+		GL_FALSE,
+		0, 
+		(void*)0);
 
 	glGenBuffers(1, &normalBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, normalBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chipNormals.size() * sizeof(glm::vec3), &chipNormals[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(2); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	;
 	glGenBuffers(1, &textureBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, textureBuffer);
 	glBufferData(GL_ARRAY_BUFFER, chipUvs.size() * sizeof(glm::vec2), &chipUvs[0], GL_STATIC_DRAW);
 
-	glEnableVertexAttribArray(1); // ist im Shader so hinterlegt
+	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 }
 
 
 
-//returns current player based on who did the last move
+// gibt aktuellen spieler zurueck (je nachdem, welcher den letzten move gemacht hat)
 int getCurrentplayer() {
 	if (boardArray[lastMoveColumn][lastMoveRow] == 1) {
 		return 2;
@@ -532,7 +377,7 @@ int getCurrentplayer() {
 		return rand() % 1 + 1;
 	}
 }
-//return true if board is full
+// true wenn board voll ist
 bool isBoardFullCheck() {
 	if (totalMoves == BOARD_SIZE * BOARD_SIZE) {
 		return true;
@@ -540,14 +385,6 @@ bool isBoardFullCheck() {
 	return false;
 }
 int totalMovesCopy = 0;
-
-//return true if board is full
-bool isCopyBoardFullCheck() {
-	if (totalMovesCopy == BOARD_SIZE * BOARD_SIZE) {
-		return true;
-	}
-	return false;
-}
 
 // return die row die den nächsten freien spot hat. Falls in der column die unteren 3 steine gespielt sind(also 7 6 und 5) return 4. return -1 falls column voll.
 int checkDepth(int column) {
@@ -558,8 +395,7 @@ int checkDepth(int column) {
 	}
 	return -1;
 }
-//kopie des brettes für kalkulationen für den bot
-int boardArrayCopy[BOARD_SIZE][BOARD_SIZE];
+
 //kopiert den current state vom brett in die kopie
 void copyTheBoard() {
 	for (int i = 0; i < BOARD_SIZE; i++) {
@@ -573,77 +409,95 @@ void copyTheBoard() {
 }
 //checkt falls durch das platzieren eines steines der momentane spieler das spiel gewonnen haette. return true falls winning move.
 bool isWinningMove(int column, int player) {
-
 	copyTheBoard();
 	int depth = checkDepth(column);
 	if (depth != -1) {
 		boardArrayCopy[column][depth] = player;
 
+		int counter = 0;
 
-	}
-	return false;
+		//check senkrecht
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (boardArrayCopy[column][i] == player) {
+				counter++;
+				if (counter == 4) {
 
-}
+					return true;
+				}
+			}
+			else {
+				counter = 0;
+			}
+		}
+		counter = 0;
 
-bool hasDiagonalWinCopy(int P) {
-	int directions[4][2] = { { 1,0 },{ 1,-1 },{ 1,1 },{ 0,1 } };
-	for (int i = 0; i < 4; i++) {
-		int dx = directions[i][0];
-		int dy = directions[i][1];
-		for (int x = 0; x < BOARD_SIZE; x++) {
-			for (int y = 0; y < BOARD_SIZE; y++) {
-				int lastx = x + 3 * dx;
-				int lasty = y + 3 * dy;
-				if (0 <= lastx && lastx < BOARD_SIZE && 0 <= lasty && lasty < BOARD_SIZE) {
-					int w = P;
-					if (w != 0 && w == boardArrayCopy[x + dx][y + dy]
-						&& w == boardArrayCopy[x + 2 * dx][y + 2 * dy]
-						&& w == boardArrayCopy[lastx][lasty]) {
+		//check waagrecht
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (boardArrayCopy[i][depth] == player) {
+				counter++;
+				if (counter == 4) {
+					return true;
+				}
+			}
+			else {
+				counter = 0;
+			}
+		}
+		counter = 0;
+
+		//check horizontal
+		//von oben links nach unten rechts
+		int startrow = BOARD_SIZE - 1 - column + depth;
+		int startcolumn = BOARD_SIZE - 1;
+		while (startrow > BOARD_SIZE - 1) {
+			startrow--;
+			startcolumn--;
+		}
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (startrow >= 0 && startcolumn >= 0) {
+				if (boardArrayCopy[startcolumn][startrow] == player) {
+					counter++;
+					if (counter == 4) {
 						return true;
 					}
 				}
+				else {
+					counter = 0;
+				}
 			}
+			startrow--;
+			startcolumn--;
 		}
-	}
-	return false; // no winner
-}
+		counter = 0;
 
-bool hasHorizontalWinCopy(int P) {
-	for (int row = 0; row < BOARD_SIZE; row++) {
-		for (int col = 0; col < BOARD_SIZE - 4; col++) {
-			bool isWin = true;
-			for (int i = 0; i < 4 && isWin; i++) {
-				isWin = (boardArrayCopy[row][col + i] == P);
+
+		//check horizontal
+		//von oben rechts nach unten links
+		startrow = depth + column;
+		startcolumn = 0;
+		while (startrow > BOARD_SIZE - 1) {
+			startrow--;
+			startcolumn++;
+		}
+		for (int i = 0; i < BOARD_SIZE; i++) {
+			if (startrow >= 0 && startcolumn < BOARD_SIZE) {
+				if (boardArrayCopy[startcolumn][startrow] == player) {
+					counter++;
+					if (counter == 4) {
+						return true;
+					}
+				}
+				else {
+					counter = 0;
+				}
 			}
-			if (isWin) { return true; }
+			startrow--;
+			startcolumn++;
 		}
 	}
 	return false;
-}
-
-bool hasVerticalWinCopy(int P) {
-	for (int col = 0; col < BOARD_SIZE; col++) {
-		for (int row = 0; row < BOARD_SIZE - 4; row++) {
-			bool isWin = true;
-			for (int i = 0; i < 4 && isWin; i++) {
-				isWin = (boardArrayCopy[row + i][col] == P);
-			}
-			if (isWin) { return true; }
-		}
-	}
-	return false;
-}
-
-bool hasWonCopy(int player) {
-	if (hasDiagonalWinCopy(player) || hasHorizontalWinCopy(player) || hasVerticalWinCopy(player)) {
-		return true;
-	}
-	else {
-		return false;
-	}
 
 }
-
 
 //play a chip for a player in a given column on the first free space in that column
 bool playChip(int column, int player) {
@@ -684,118 +538,10 @@ bool playChip(int column, int player) {
 	else { return false; }
 }
 
-void copyTotalMoves() {
-	totalMovesCopy = totalMoves;
-}
-//playchip but for the copy board to calculate for the pc
-bool playChipCopy(int column, int player) {
-	int depth = checkDepth(column);
-	if (depth != -1) {
-		if (player == 1) {
-			boardArrayCopy[column][depth] = 1;
-			totalMovesCopy++;
-			return true;
-		}
-		else {
-			boardArrayCopy[column][depth] = 2;
-			totalMovesCopy++;
-			return true;
-		}
-		return false;
-	}
-	else { return false; }
-}
-
-//playchip but for the copy board to calculate for the pc
-void removeChipCopy(int column) {
-	int depth = checkDepth(column);
-
-	boardArrayCopy[column][depth - 1] = 0;
-	totalMovesCopy--;
-}
-
-//checkdepth but for copy
-int checkCopy(int column) {
-	for (int i = BOARD_SIZE - 1; i >= 0; i--) {
-		if (boardArrayCopy[column][i] == 0) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-int evaluateCopy() {
-	int score = 0;
-
-	// very good move for computer
-	if (hasWonCopy(NPC)) {
-		return 9999;
-	}
-
-	// very bad move, player wins!
-	if (hasWonCopy(PLAYER)) {
-		return -9999;
-	}
-
-	// counts open 3 in a row for the computer and the player
-	//int myThree = openThree(mySeed);
-	// int oppThree = openThree(oppSeed);
-
-	//score = myThree - oppThree; // if negative, player advantage, otherwise computer advantage
-
-	return score;
-}
-
-
-void printCopyBoardToConsole() {
-	std::cout << "NEW BOARD" << std::endl;
-	for (int i = 0; i < BOARD_SIZE; i++) {
-		for (int j = 0; j < BOARD_SIZE; j++) {
-			std::cout << boardArrayCopy[j][i] << ",";
-		}
-		std::cout << std::endl;
-	}
-	
-	std::cout << "END BOARD" << std::endl;
-
-}
-
-
-int negamax(int depth, int player) {
-	int  best = -INFINITY;
-	if (isCopyBoardFullCheck() || depth <= 0) {
-		if (evaluateCopy() >= 0) {
-			std::cout << evaluateCopy();
-			printCopyBoardToConsole();
-		}
-		return evaluateCopy();
-	}
-		
-	for (int i = 0; i < BOARD_SIZE; i++) {
-		playChipCopy(i, player);
-		int value = 0;
-		if (player == PLAYER)
-			value = -negamax(depth - 1, NPC);
-		else
-			value = -negamax(depth - 1, PLAYER);
-		removeChipCopy(i);
-
-		if (value > best)
-			best = value;
-	}
-	return best;
-}
-
-
-//hotseat, return true if move succesful, false otherwise
+//hotseat, return true wenn move erfolgreich
 bool hotSeat(int column) {
 	return playChip(column, getCurrentplayer());
 }
-//modes; current mode = true, rest false; for more info look at key callback
-bool hotseat = false;
-bool vscomputer = false;
-bool menu = true;
-int difficulty = 0; //schwierigkeitsgrad von computer gegner. 0= random moves,1=plays winning moves, playes against winning player moves, otherwise random
 
 void easyNPC() {
 	int v2 = rand() % BOARD_SIZE; //rng zwischen 0-7(0 1 2 3 4 5 6 7)
@@ -826,27 +572,6 @@ void mediumNPC() {
 		easyNPC();
 	}
 }
-void hardNPC() {
-	copyTheBoard();
-
-	int bestColumn = -1;
-	int highestScore = -999;
-	for (int i = 0; i < BOARD_SIZE; i++) {
-		playChipCopy(i, NPC);
-		int score = negamax(4, NPC);
-		removeChipCopy(i);
-
-		if (score > highestScore) {
-			highestScore = score;
-			std::cout << "Neuer Highest score: " << highestScore << "in column: " << i;
-			bestColumn = i;
-		}
-	}
-
-	playChip(bestColumn, NPC);
-}
-
-
 
 void computerMove() {
 	if (currentNPCWaitTime >= 0) {
@@ -854,7 +579,7 @@ void computerMove() {
 		return;
 	}
 	else {
-		// reset wait time for next time 
+		// wartezeit fuer naechsten zug erneuern
 		currentNPCWaitTime = NPC_WAIT_TIME_IN_FRAMES;
 	}
 
@@ -864,10 +589,7 @@ void computerMove() {
 	else if (difficulty == 1) {
 		mediumNPC();
 	}
-	else if (difficulty == 2) {
-		hardNPC();
-	}
-
+	
 	computerTurn = false;
 }
 
@@ -899,7 +621,6 @@ void drawGameInfoText() {
 		printText2D("1. Hotseat", 50, 430, 35);
 		printText2D("2. vs easy NPC", 50, 330, 35);
 		printText2D("3. vs medium NPC", 50, 230, 35);
-		printText2D("4. vs hard NPC", 50, 130, 35);
 		printText2D("5. Quit", 50, 30, 35);
 
 	}
@@ -1002,12 +723,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 				else if (vscomputer && computerTurn == false) {
 					hotSeat(3);
 					computerTurn = true;
-				}
-				else if (menu) {
-					menu = !menu;
-					hotseat = false;
-					vscomputer = true;
-					difficulty = 2;
 				}
 			}
 		}
@@ -1141,8 +856,6 @@ int main(void)
 	yellowTexture = loadBMP_custom("yellow_texture.bmp");
 	blueTexture = loadBMP_custom("blue_texture.bmp");
 
-
-	// Shader auch benutzen !
 	glUseProgram(programID);
 
 	glEnable(GL_DEPTH_TEST);
@@ -1161,7 +874,7 @@ int main(void)
 	// Eventloop
 	while (!glfwWindowShouldClose(window))
 	{
-		// call computermove every frame if computer has turn to count down timer
+		// call computermove jeden frame damit die wait-time runtergezaehlt wird
 		if (computerTurn) {
 			computerMove();
 		}
@@ -1177,7 +890,7 @@ int main(void)
 		// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 
-		//bewegt das board in und aus dem frame heraus
+		// fuer kameraschwenk bei wechsel von menu zu spiel und andersrum
 		if (menu && camangle < 17) { camangle += CAMERA_MOVEMENT_SPEED; }
 		else if (!menu && camangle > 0) { camangle -= CAMERA_MOVEMENT_SPEED; }
 
@@ -1195,7 +908,6 @@ int main(void)
 
 		sendMVP();
 
-		// change y to increase distance from board
 		glm::vec3 lightPos = glm::vec3(8, 20, 12);
 
 		glUniform3f(glGetUniformLocation(programID, "LightPosition_worldspace"), lightPos.x, lightPos.y, lightPos.z);
@@ -1212,18 +924,12 @@ int main(void)
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
 
-
-
 		// Swap buffers
 		glfwSwapBuffers(window);
 
 		// Poll for and process events 
 		glfwPollEvents();
 	}
-
-	// this raises an exception
-	//deleteArrayForBoard(); 
-	//deleteZPositionArray();
 
 	cleanupText2D();
 
