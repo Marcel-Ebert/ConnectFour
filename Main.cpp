@@ -39,7 +39,7 @@ bool vscomputer = false;
 
 bool menu = true; // menu am anfang anzeigen
 
-int difficulty = 0; //schwierigkeitsgrad von computer gegner. 0= random moves,1=plays winning moves, playes against winning player moves, otherwise random
+int difficulty = 0; //schwierigkeitsgrad von computer gegner. (0- einfach, 1-medium, 2-hard)
 
 const int NPC_WAIT_TIME_IN_FRAMES = 60; // Anzahl der Frames die von NPC geskipped werden um denken zu simulieren
 int currentNPCWaitTime = NPC_WAIT_TIME_IN_FRAMES; // wird runtergezaehlt
@@ -96,10 +96,7 @@ void error_callback(int error, const char* description)
 
 void sendMVP()
 {
-	// Our ModelViewProjection : multiplication of our 3 matrices
 	glm::mat4 MVP = Projection * View * Model;
-	// Send our transformation to the currently bound shader, 
-	// in the "MVP" uniform, konstant fuer alle Eckpunkte
 	glUniformMatrix4fv(glGetUniformLocation(programID, "MVP"), 1, GL_FALSE, &MVP[0][0]);
 
 	glUniformMatrix4fv(glGetUniformLocation(programID, "M"), 1, GL_FALSE, &Model[0][0]);
@@ -496,7 +493,7 @@ bool isWinningMove(int column, int player) {
 
 }
 
-//play a chip for a player in a given column on the first free space in that column
+// setzt chip fuer player (PLAYER oder NPC) in den ersten freien Platz in der Spalte
 bool playChip(int column, int player) {
 	int depth = checkDepth(column);
 	if (depth != -1) {
@@ -832,8 +829,6 @@ int main(void)
 	// Fehler werden auf stderr ausgegeben, s. o.
 	glfwSetErrorCallback(error_callback);
 
-	// Open a window and create its OpenGL context
-	// glfwWindowHint vorher aufrufen, um erforderliche Resourcen festzulegen
 	GLFWwindow* window = glfwCreateWindow(1300, // Breite
 		1000,  // Hoehe
 		"Connect four", // Ueberschrift
@@ -862,10 +857,8 @@ int main(void)
 	// Auf Keyboard-Events reagieren
 	glfwSetKeyCallback(window, key_callback);
 
-	// Dark blue background
 	glClearColor(0.5f, 0.3f, 0.5f, 0.0f);
 
-	// Create and compile our GLSL program from the shaders
 	programID = LoadShaders("StandardShading.vertexshader", "StandardShading.fragmentshader");
 
 	woodTexture = loadBMP_custom("wood_texture.bmp");
@@ -887,7 +880,6 @@ int main(void)
 
 	initText2D("Holstein.DDS");
 
-	// Eventloop
 	while (!glfwWindowShouldClose(window))
 	{
 		// call computermove jeden frame damit die wait-time runtergezaehlt wird
@@ -898,24 +890,20 @@ int main(void)
 
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		// Clear the screen
 		glClear(GL_COLOR_BUFFER_BIT);
 
 		glUseProgram(programID);
 
-		// Projection matrix : 45° Field of View, 4:3 ratio, display range : 0.1 unit <-> 100 units
 		Projection = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.0f);
 
 		// fuer kameraschwenk bei wechsel von menu zu spiel und andersrum
 		if (menu && camangle < 17) { camangle += CAMERA_MOVEMENT_SPEED; }
 		else if (!menu && camangle > 0) { camangle -= CAMERA_MOVEMENT_SPEED; }
 
-		// Camera matrix
-		View = glm::lookAt(glm::vec3(8, 20, 14), // Cam era is at (0,0,-5), in World Space
-			glm::vec3(8, camangle, 8),  // and looks at the origin
-			glm::vec3(0, 1, 0)); // Head is up (set to 0,-1,0 to look upside-down)
+		View = glm::lookAt(glm::vec3(8, 20, 14),
+			glm::vec3(8, camangle, 8),
+			glm::vec3(0, 1, 0));
 
-								 // Model matrix : an identity matrix (model will be at the origin)
 		Model = glm::mat4(1.0f);
 
 		Model = glm::rotate(Model, 15.0f, glm::vec3(1, 0, 0));
@@ -945,10 +933,8 @@ int main(void)
 		glDisableVertexAttribArray(1);
 		glDisableVertexAttribArray(2);
 
-		// Swap buffers
 		glfwSwapBuffers(window);
 
-		// Poll for and process events 
 		glfwPollEvents();
 	}
 
@@ -962,7 +948,6 @@ int main(void)
 
 	glDeleteProgram(programID);
 
-	// Close OpenGL window and terminate GLFW
 	glfwTerminate();
 	return 0;
 }
