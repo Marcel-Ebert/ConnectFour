@@ -1,0 +1,12 @@
+wood texture
+https://www.sketchuptextureclub.com/textures/architecture/wood/fine-wood/dark-wood/dark-fine-wood-texture-seamless-04203
+
+yellow texture
+https://www.dreamstime.com/stock-photo-circle-gold-steel-background-texture-image49727159
+
+blue texture
+http://www.behangstore.nl/catalog/206,9052/40343/Behang_KIDS_en_Baby/Origin_(behang)/Wunderkammer/Wunderkammer_behang_Suzani_bloemen_347426
+
+Holstein.DDS
+https://github.com/opengl-tutorials/ogl/tree/master/tutorial11_2d_fonts
+

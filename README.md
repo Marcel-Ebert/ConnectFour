@@ -1,5 +1,7 @@
 Connect Four game implemented with OpenGL
 
+The Player that succeeds on placing four chips in a row (horizontal, vertical or diagonal) wins the game.
+
 To start the Game you have to start the "ConnectFour.exe"-File which is located in the main directory.
 To compile it yourself you have to use "Visual Studio 2015 (v140)" as platform tool set.
 
